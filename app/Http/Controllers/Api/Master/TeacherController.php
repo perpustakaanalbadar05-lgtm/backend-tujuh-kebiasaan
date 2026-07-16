@@ -135,4 +135,32 @@ class TeacherController extends Controller
         $teacher->delete();
         return $this->successResponse(null, 'Data guru berhasil dihapus');
     }
+
+    public function resetPassword(Request $request, $id)
+    {
+        $schoolId = $request->user()->school_id;
+        $teacher = Teacher::where('school_id', $schoolId)->find($id);
+
+        if (!$teacher) {
+            return $this->errorResponse('Data guru tidak ditemukan', 404);
+        }
+
+        if ($teacher->user_id) {
+            $user = User::find($teacher->user_id);
+            if ($user) {
+                // If NIP is null, use a generic fallback or return error
+                $password = $teacher->nip ?? 'password';
+                $user->password = Hash::make($password);
+                $user->save();
+            }
+        }
+
+        return $this->successResponse(null, 'Password berhasil direset');
+    }
+
+    public function export(Request $request)
+    {
+        $schoolId = $request->user()->school_id;
+        return \Maatwebsite\Excel\Facades\Excel::download(new \App\Exports\TeachersExport($schoolId), 'data_guru.xlsx');
+    }
 }

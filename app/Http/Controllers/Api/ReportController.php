@@ -96,4 +96,16 @@ class ReportController extends Controller
             'habit_breakdown' => $habitBreakdown
         ], 'Laporan bulanan berhasil di-generate');
     }
+
+    public function exportExcel(Request $request)
+    {
+        $schoolId = $request->user()->school_id;
+        $academicYearId = $request->query('academic_year_id');
+        $semesterId = $request->query('semester_id');
+
+        return \Maatwebsite\Excel\Facades\Excel::download(
+            new \App\Exports\ReportExport($schoolId, $academicYearId, $semesterId), 
+            'laporan_rekap_siswa.xlsx'
+        );
+    }
 }

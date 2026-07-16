@@ -138,4 +138,30 @@ class StudentController extends Controller
         $student->delete();
         return $this->successResponse(null, 'Data siswa berhasil dihapus');
     }
+
+    public function resetPassword(Request $request, $id)
+    {
+        $schoolId = $request->user()->school_id;
+        $student = Student::where('school_id', $schoolId)->find($id);
+
+        if (!$student) {
+            return $this->errorResponse('Data siswa tidak ditemukan', 404);
+        }
+
+        if ($student->user_id) {
+            $user = User::find($student->user_id);
+            if ($user) {
+                $user->password = Hash::make($student->nis);
+                $user->save();
+            }
+        }
+
+        return $this->successResponse(null, 'Password berhasil direset menjadi NIS');
+    }
+
+    public function export(Request $request)
+    {
+        $schoolId = $request->user()->school_id;
+        return \Maatwebsite\Excel\Facades\Excel::download(new \App\Exports\StudentsExport($schoolId), 'data_siswa.xlsx');
+    }
 }

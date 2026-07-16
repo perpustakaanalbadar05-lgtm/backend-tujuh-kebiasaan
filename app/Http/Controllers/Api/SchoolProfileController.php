@@ -58,6 +58,7 @@ class SchoolProfileController extends Controller
             'principal_name' => 'nullable|string|max:255',
             'journal_start_time' => 'nullable|string',
             'journal_end_time' => 'nullable|string',
+            'active_modules' => 'nullable|string', // JSON string
         ]);
 
         // Update School
@@ -78,6 +79,7 @@ class SchoolProfileController extends Controller
             'principal_name' => $request->principal_name,
             'journal_start_time' => $request->journal_start_time,
             'journal_end_time' => $request->journal_end_time,
+            'active_modules' => $request->active_modules,
         ];
 
         foreach ($settingsToUpdate as $key => $value) {
