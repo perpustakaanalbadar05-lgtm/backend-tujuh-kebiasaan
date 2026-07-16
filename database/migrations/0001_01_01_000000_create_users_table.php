@@ -13,12 +13,22 @@ return new class extends Migration
     {
         Schema::create('users', function (Blueprint $table) {
             $table->id();
+            // school_id is nullable because superadmin might not belong to a school
+            $table->unsignedBigInteger('school_id')->nullable()->index();
             $table->string('name');
-            $table->string('email')->unique();
+            $table->string('username')->unique()->nullable(); // For NIS/NIP login
+            $table->string('email')->unique()->nullable();
+            $table->string('role', 50)->default('siswa')->index();
             $table->timestamp('email_verified_at')->nullable();
             $table->string('password');
             $table->rememberToken();
+            
+            // Audit columns
+            $table->unsignedBigInteger('created_by')->nullable();
+            $table->unsignedBigInteger('updated_by')->nullable();
+            
             $table->timestamps();
+            $table->softDeletes();
         });
 
         Schema::create('password_reset_tokens', function (Blueprint $table) {
