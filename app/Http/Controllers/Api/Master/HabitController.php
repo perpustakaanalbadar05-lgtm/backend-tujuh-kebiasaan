@@ -15,11 +15,51 @@ class HabitController extends Controller
     {
         $schoolId = $request->user()->school_id;
         
+        // Return semua habit (aktif dan nonaktif) untuk keperluan konfigurasi Master
         $habits = Habit::where('school_id', $schoolId)
-                       ->where('active', true)
                        ->orderBy('order_number')
                        ->get();
 
         return $this->successResponse($habits, 'Daftar kebiasaan berhasil diambil');
+    }
+
+    public function store(Request $request)
+    {
+        $request->validate([
+            'name' => 'required|string|max:255',
+            'order_number' => 'required|integer',
+            'active' => 'boolean'
+        ]);
+
+        $habit = Habit::create([
+            'school_id' => $request->user()->school_id,
+            'name' => $request->name,
+            'order_number' => $request->order_number,
+            'active' => $request->input('active', true),
+        ]);
+
+        return $this->successResponse($habit, 'Kebiasaan berhasil ditambahkan', 201);
+    }
+
+    public function update(Request $request, $id)
+    {
+        $request->validate([
+            'name' => 'required|string|max:255',
+            'order_number' => 'required|integer',
+            'active' => 'boolean'
+        ]);
+
+        $habit = Habit::where('school_id', $request->user()->school_id)->findOrFail($id);
+        $habit->update($request->only(['name', 'order_number', 'active']));
+
+        return $this->successResponse($habit, 'Kebiasaan berhasil diperbarui');
+    }
+
+    public function destroy(Request $request, $id)
+    {
+        $habit = Habit::where('school_id', $request->user()->school_id)->findOrFail($id);
+        $habit->delete();
+
+        return $this->successResponse(null, 'Kebiasaan berhasil dihapus');
     }
 }
