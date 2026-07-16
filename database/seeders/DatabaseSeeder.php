@@ -179,5 +179,43 @@ class DatabaseSeeder extends Seeder
                 'max_score' => $pred['max'],
             ]);
         }
+
+        // 10. Configuration: Badges (Global & School Specific)
+        $badges = [
+            ['name' => 'Konsisten 7 Hari', 'description' => 'Telah mengisi jurnal 7 hari berturut-turut', 'icon' => '🏆', 'type' => 'consistent_days', 'value' => 7, 'global' => true],
+            ['name' => 'Konsisten 30 Hari', 'description' => 'Telah mengisi jurnal 30 hari berturut-turut', 'icon' => '👑', 'type' => 'consistent_days', 'value' => 30, 'global' => true],
+            ['name' => 'Bangun Pagi Terbaik', 'description' => 'Selalu bangun pagi tepat waktu selama seminggu', 'icon' => '🌅', 'type' => 'habit_specific', 'value' => 1, 'global' => false],
+            ['name' => 'Teladan Karakter', 'description' => 'Diberikan secara khusus oleh Wali Kelas', 'icon' => '⭐', 'type' => 'manual', 'value' => null, 'global' => false],
+        ];
+
+        $createdBadges = [];
+        foreach ($badges as $badgeData) {
+            $createdBadges[] = \App\Models\Badge::create([
+                'school_id' => $badgeData['global'] ? null : $school->id,
+                'name' => $badgeData['name'],
+                'description' => $badgeData['description'],
+                'icon' => $badgeData['icon'],
+                'condition_type' => $badgeData['type'],
+                'condition_value' => $badgeData['value'],
+                'is_active' => true,
+            ]);
+        }
+
+        // Award some badges to Student 1
+        $firstStudent = Student::where('school_id', $school->id)->first();
+        if ($firstStudent && count($createdBadges) > 0) {
+            \App\Models\StudentBadge::create([
+                'student_id' => $firstStudent->id,
+                'badge_id' => $createdBadges[0]->id,
+                'awarded_at' => now(),
+                'awarded_by' => null, // auto
+            ]);
+            \App\Models\StudentBadge::create([
+                'student_id' => $firstStudent->id,
+                'badge_id' => $createdBadges[3]->id,
+                'awarded_at' => now(),
+                'awarded_by' => $teacherUser1->id, // manual by teacher
+            ]);
+        }
     }
 }

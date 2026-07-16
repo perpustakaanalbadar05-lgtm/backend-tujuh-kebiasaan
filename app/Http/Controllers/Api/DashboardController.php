@@ -44,12 +44,27 @@ class DashboardController extends Controller
                     ];
                 });
 
+            // National chart data (last 7 days)
+            $chartData = [];
+            for ($i = 6; $i >= 0; $i--) {
+                $date = Carbon::now()->subDays($i);
+                $count = Journal::whereDate('date', $date->format('Y-m-d'))->count();
+
+                $hariIndo = ['Minggu', 'Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu'];
+                
+                $chartData[] = [
+                    'name' => $hariIndo[$date->dayOfWeek],
+                    'partisipasi' => $count
+                ];
+            }
+
             return $this->successResponse([
                 'type' => 'yayasan',
                 'total_schools' => $totalSchools,
                 'total_students' => $totalStudents,
                 'total_teachers' => $totalTeachers,
-                'leaderboard' => $leaderboard
+                'leaderboard' => $leaderboard,
+                'chart_data' => $chartData
             ], 'Statistik yayasan berhasil diambil');
         }
 

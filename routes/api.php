@@ -16,7 +16,15 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/profile', [\App\Http\Controllers\Api\ProfileController::class, 'show']);
     Route::put('/profile', [\App\Http\Controllers\Api\ProfileController::class, 'update']);
     Route::put('/change-password', [\App\Http\Controllers\Api\ProfileController::class, 'changePassword']);
+
+    // School Profile (Admin Sekolah)
+    Route::get('/school-profile', [\App\Http\Controllers\Api\SchoolProfileController::class, 'show']);
+    Route::post('/school-profile', [\App\Http\Controllers\Api\SchoolProfileController::class, 'update']); // Use POST for multipart form data
     
+    // Import Data
+    Route::post('/import/students', [\App\Http\Controllers\Api\ImportController::class, 'importStudents']);
+    Route::post('/import/teachers', [\App\Http\Controllers\Api\ImportController::class, 'importTeachers']);
+
     // Master Data Routes
     Route::prefix('master')->group(function() {
         Route::apiResource('schools', \App\Http\Controllers\Api\Master\SchoolController::class);
@@ -42,6 +50,9 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('mappings/parent-students', [\App\Http\Controllers\Api\Master\MappingController::class, 'parentStudents']);
         Route::post('mappings/parent-students', [\App\Http\Controllers\Api\Master\MappingController::class, 'assignParentStudent']);
         Route::delete('mappings/parent-students/{id}', [\App\Http\Controllers\Api\Master\MappingController::class, 'removeParentStudent']);
+
+        // Gamification Master
+        Route::apiResource('badges', \App\Http\Controllers\Api\Master\BadgeController::class);
     });
 
     // Transaction Routes
@@ -55,6 +66,10 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::post('/{id}/approve-parent', [\App\Http\Controllers\Api\Transaction\ApprovalController::class, 'approveByParent']);
     });
 
+    // Gamification Transactions (Achievements)
+    Route::get('/achievements/{studentId?}', [\App\Http\Controllers\Api\Transaction\AchievementController::class, 'getStudentAchievements']);
+    Route::post('/achievements/award', [\App\Http\Controllers\Api\Transaction\AchievementController::class, 'awardBadge']);
+
     // Dashboard Analytics
     Route::get('/dashboard/stats', [\App\Http\Controllers\Api\DashboardController::class, 'stats']);
 
@@ -64,6 +79,7 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('/weekly', [\App\Http\Controllers\Api\MonitoringController::class, 'weekly']);
         Route::get('/monthly', [\App\Http\Controllers\Api\MonitoringController::class, 'monthly']);
         Route::get('/semester', [\App\Http\Controllers\Api\MonitoringController::class, 'semester']);
+        Route::get('/class-comparison', [\App\Http\Controllers\Api\MonitoringController::class, 'classComparison']);
     });
 
     // Reports / Recap

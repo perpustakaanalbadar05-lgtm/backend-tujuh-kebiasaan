@@ -165,4 +165,38 @@ class MonitoringController extends Controller
             'habit_data' => $habitData,
         ], 'Monitoring semester berhasil diambil');
     }
+
+    public function classComparison(Request $request)
+    {
+        $schoolId = $request->user()->school_id;
+        
+        $data = DB::table('classes')
+            ->leftJoin('students', function($join) {
+                $join->on('classes.id', '=', 'students.class_id')
+                     ->where('students.status', '=', 'active');
+            })
+            ->leftJoin('journals', 'students.id', '=', 'journals.student_id')
+            ->where('classes.school_id', $schoolId)
+            ->where('classes.active', true)
+            ->selectRaw("
+                classes.id as class_id,
+                classes.name as class_name,
+                COUNT(DISTINCT students.id) as total_students,
+                COUNT(DISTINCT journals.id) as total_journals_filled,
+                AVG(journals.score) as average_score
+            ")
+            ->groupBy('classes.id', 'classes.name')
+            ->orderBy('classes.name')
+            ->get();
+
+        // Calculate participation rate
+        foreach ($data as $item) {
+            // Assume 30 days active per month roughly for calculation or total journals / (students * expected_days)
+            // For simplicity, we just use raw count or daily average.
+            $item->average_score = $item->average_score ? round($item->average_score, 1) : 0;
+            $item->total_journals_filled = $item->total_journals_filled ?? 0;
+        }
+
+        return $this->successResponse($data, 'Data perbandingan kelas berhasil diambil');
+    }
 }
