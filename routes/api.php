@@ -16,6 +16,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::prefix('master')->group(function() {
         Route::apiResource('students', \App\Http\Controllers\Api\Master\StudentController::class);
         Route::apiResource('teachers', \App\Http\Controllers\Api\Master\TeacherController::class);
+        Route::get('habits', [\App\Http\Controllers\Api\Master\HabitController::class, 'index']);
     });
 
     // Transaction Routes
@@ -28,4 +29,7 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::post('/{id}/approve-teacher', [\App\Http\Controllers\Api\Transaction\ApprovalController::class, 'approveByTeacher']);
         Route::post('/{id}/approve-parent', [\App\Http\Controllers\Api\Transaction\ApprovalController::class, 'approveByParent']);
     });
+
+    // Dashboard Analytics
+    Route::get('/dashboard/stats', [\App\Http\Controllers\Api\DashboardController::class, 'stats']);
 });

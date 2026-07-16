@@ -65,7 +65,7 @@ class JournalController extends Controller
             'habits' => 'required|array',
             'habits.*.habit_id' => 'required|exists:habits,id',
             'habits.*.is_done' => 'required|boolean',
-            'habits.*.notes' => 'nullable|string'
+            'habits.*.note' => 'nullable|string'
         ]);
 
         $date = Carbon::parse($request->date)->format('Y-m-d');
@@ -100,7 +100,7 @@ class JournalController extends Controller
                     'journal_id' => $journal->id,
                     'habit_id' => $habit['habit_id'],
                     'is_done' => $habit['is_done'],
-                    'notes' => $habit['notes'] ?? null,
+                    'note' => $habit['note'] ?? null,
                     'created_at' => now(),
                     'updated_at' => now(),
                 ];

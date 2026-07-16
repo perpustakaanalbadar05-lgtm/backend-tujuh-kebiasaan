@@ -26,8 +26,7 @@ class ApprovalController extends Controller
         if (!$journal) return $this->errorResponse('Jurnal tidak ditemukan', 404);
 
         $request->validate([
-            'status' => 'required|in:approved,rejected',
-            'feedback' => 'nullable|string'
+            'status' => 'required|in:approved,rejected'
         ]);
 
         $teacher = Teacher::where('user_id', $user->id)->first();
@@ -37,9 +36,7 @@ class ApprovalController extends Controller
             [
                 'teacher_id' => $teacher ? $teacher->id : null,
                 'status' => $request->status,
-                'feedback' => $request->feedback,
                 'approved_at' => now(),
-                'created_by' => $user->id,
             ]
         );
 
@@ -58,7 +55,7 @@ class ApprovalController extends Controller
 
         $request->validate([
             'status' => 'required|in:approved,rejected',
-            'feedback' => 'nullable|string'
+            'note' => 'nullable|string'
         ]);
 
         $parent = StudentParent::where('user_id', $user->id)->first();
@@ -68,9 +65,8 @@ class ApprovalController extends Controller
             [
                 'parent_id' => $parent ? $parent->id : null,
                 'status' => $request->status,
-                'feedback' => $request->feedback,
+                'note' => $request->note,
                 'approved_at' => now(),
-                'created_by' => $user->id,
             ]
         );
 
