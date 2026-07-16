@@ -1,0 +1,99 @@
+<?php
+
+namespace App\Http\Controllers\Api;
+
+use App\Http\Controllers\Controller;
+use Illuminate\Http\Request;
+use App\Models\Student;
+use App\Models\Journal;
+use App\Models\Habit;
+use App\Traits\ApiResponse;
+use Carbon\Carbon;
+
+class ReportController extends Controller
+{
+    use ApiResponse;
+
+    public function getStudentReport(Request $request, $studentId)
+    {
+        $user = $request->user();
+        
+        // Proteksi: Jika Siswa/Ortu, pastikan hanya bisa lihat laporannya sendiri
+        if ($user->role === 'siswa') {
+            $student = Student::where('user_id', $user->id)->first();
+            if (!$student || $student->id != $studentId) {
+                return $this->errorResponse('Unauthorized access', 403);
+            }
+        }
+        
+        // TODO: Proteksi Orang Tua (cek relasi di tabel pivot) bisa ditambahkan di sini
+
+        $student = Student::with('school')->findOrFail($studentId);
+        
+        $month = $request->input('month', date('m'));
+        $year = $request->input('year', date('Y'));
+        
+        // Ambil semua jurnal siswa di bulan & tahun yang diminta
+        $journals = Journal::with('details')
+            ->where('student_id', $studentId)
+            ->whereMonth('date', $month)
+            ->whereYear('date', $year)
+            ->get();
+
+        $totalDays = $journals->count();
+        $averageScore = $totalDays > 0 ? round($journals->avg('score'), 2) : 0;
+        
+        // Penentuan Predikat
+        $predicate = 'D'; // Kurang (<50%)
+        if ($averageScore >= 85) {
+            $predicate = 'A'; // Sangat Baik
+        } elseif ($averageScore >= 70) {
+            $predicate = 'B'; // Baik
+        } elseif ($averageScore >= 50) {
+            $predicate = 'C'; // Cukup
+        }
+
+        // Rekapitulasi per-habit
+        $activeHabits = Habit::where('school_id', $student->school_id)
+                             ->where('active', true)
+                             ->orderBy('order_number')
+                             ->get();
+                             
+        $habitBreakdown = [];
+        foreach ($activeHabits as $habit) {
+            $doneCount = 0;
+            foreach ($journals as $journal) {
+                $detail = $journal->details->where('habit_id', $habit->id)->first();
+                if ($detail && $detail->is_done) {
+                    $doneCount++;
+                }
+            }
+            
+            $habitBreakdown[] = [
+                'habit_id' => $habit->id,
+                'habit_name' => $habit->name,
+                'done_count' => $doneCount,
+                'percentage' => $totalDays > 0 ? round(($doneCount / $totalDays) * 100) : 0
+            ];
+        }
+
+        return $this->successResponse([
+            'student' => [
+                'id' => $student->id,
+                'name' => $student->name,
+                'nis' => $student->nis,
+                'school' => $student->school->name ?? 'Sekolah'
+            ],
+            'period' => [
+                'month' => $month,
+                'year' => $year
+            ],
+            'summary' => [
+                'total_days_filled' => $totalDays,
+                'average_score' => (int)$averageScore,
+                'predicate' => $predicate
+            ],
+            'habit_breakdown' => $habitBreakdown
+        ], 'Laporan bulanan berhasil di-generate');
+    }
+}

@@ -32,4 +32,7 @@ Route::middleware('auth:sanctum')->group(function () {
 
     // Dashboard Analytics
     Route::get('/dashboard/stats', [\App\Http\Controllers\Api\DashboardController::class, 'stats']);
+
+    // Reports / Recap
+    Route::get('/reports/student/{studentId}', [\App\Http\Controllers\Api\ReportController::class, 'getStudentReport']);
 });
