@@ -3,34 +3,34 @@
 namespace App\Http\Controllers\Api\Master;
 
 use App\Http\Controllers\Controller;
-use App\Models\Teacher;
+use App\Models\StudentParent;
 use App\Models\User;
 use Illuminate\Http\Request;
 use App\Traits\ApiResponse;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\DB;
 
-class TeacherController extends Controller
+class ParentController extends Controller
 {
     use ApiResponse;
 
     public function index(Request $request)
     {
         $schoolId = $request->user()->school_id;
-        
-        $query = Teacher::with('user')->where('school_id', $schoolId);
+
+        $query = StudentParent::with('user', 'students')->where('school_id', $schoolId);
 
         if ($request->has('search')) {
             $search = $request->search;
             $query->where(function($q) use ($search) {
                 $q->where('name', 'like', "%{$search}%")
-                  ->orWhere('nip', 'like', "%{$search}%")
-                  ->orWhere('email', 'like', "%{$search}%");
+                  ->orWhere('email', 'like', "%{$search}%")
+                  ->orWhere('phone', 'like', "%{$search}%");
             });
         }
 
-        $teachers = $query->orderBy('name')->paginate(15);
-        return $this->successResponse($teachers, 'Data guru berhasil diambil');
+        $parents = $query->orderBy('name')->paginate(15);
+        return $this->successResponse($parents, 'Data orang tua berhasil diambil');
     }
 
     public function store(Request $request)
@@ -39,28 +39,25 @@ class TeacherController extends Controller
 
         $request->validate([
             'name' => 'required|string|max:255',
-            'nip' => 'nullable|string',
             'email' => 'nullable|email',
             'phone' => 'nullable|string',
+            'username' => 'required|string|unique:users,username',
         ]);
 
         DB::beginTransaction();
         try {
-            $username = $request->nip ?? strtolower(str_replace(' ', '.', $request->name)) . rand(10,99);
-
             $user = User::create([
                 'name' => $request->name,
-                'username' => $username,
-                'email' => $request->email ?? strtolower(str_replace(' ', '', $request->name)) . rand(10,99) . '@teacher.g7kaih.id',
+                'username' => $request->username,
+                'email' => $request->email ?? strtolower(str_replace(' ', '', $request->name)) . rand(10,99) . '@parent.g7kaih.id',
                 'password' => Hash::make('password'),
-                'role' => 'guru',
+                'role' => 'orangtua',
                 'school_id' => $schoolId,
             ]);
 
-            $teacher = Teacher::create([
+            $parent = StudentParent::create([
                 'school_id' => $schoolId,
                 'user_id' => $user->id,
-                'nip' => $request->nip,
                 'name' => $request->name,
                 'email' => $request->email,
                 'phone' => $request->phone,
@@ -68,71 +65,71 @@ class TeacherController extends Controller
             ]);
 
             DB::commit();
-            return $this->successResponse($teacher->load('user'), 'Data guru berhasil ditambahkan', 201);
+            return $this->successResponse($parent->load('user'), 'Orang tua berhasil ditambahkan', 201);
         } catch (\Exception $e) {
             DB::rollBack();
-            return $this->errorResponse('Gagal menambahkan data guru: ' . $e->getMessage(), 500);
+            return $this->errorResponse('Gagal menambahkan orang tua: ' . $e->getMessage(), 500);
         }
     }
 
     public function show(Request $request, $id)
     {
-        $teacher = Teacher::with('user')->where('school_id', $request->user()->school_id)->find($id);
-        
-        if (!$teacher) {
-            return $this->errorResponse('Data guru tidak ditemukan', 404);
+        $parent = StudentParent::with('user', 'students')
+            ->where('school_id', $request->user()->school_id)
+            ->find($id);
+
+        if (!$parent) {
+            return $this->errorResponse('Data orang tua tidak ditemukan', 404);
         }
 
-        return $this->successResponse($teacher, 'Detail guru berhasil diambil');
+        return $this->successResponse($parent, 'Detail orang tua berhasil diambil');
     }
 
     public function update(Request $request, $id)
     {
         $schoolId = $request->user()->school_id;
-        $teacher = Teacher::where('school_id', $schoolId)->find($id);
+        $parent = StudentParent::where('school_id', $schoolId)->find($id);
 
-        if (!$teacher) {
-            return $this->errorResponse('Data guru tidak ditemukan', 404);
+        if (!$parent) {
+            return $this->errorResponse('Data orang tua tidak ditemukan', 404);
         }
 
         $request->validate([
             'name' => 'required|string|max:255',
-            'nip' => 'nullable|string',
             'email' => 'nullable|email',
             'phone' => 'nullable|string',
         ]);
 
         DB::beginTransaction();
         try {
-            $teacher->update([
-                'nip' => $request->nip,
+            $parent->update([
                 'name' => $request->name,
                 'email' => $request->email,
                 'phone' => $request->phone,
                 'updated_by' => $request->user()->id,
             ]);
 
-            if ($teacher->user_id) {
-                User::where('id', $teacher->user_id)->update(['name' => $request->name]);
+            if ($parent->user_id) {
+                User::where('id', $parent->user_id)->update(['name' => $request->name]);
             }
 
             DB::commit();
-            return $this->successResponse($teacher->load('user'), 'Data guru berhasil diperbarui');
+            return $this->successResponse($parent->load('user'), 'Orang tua berhasil diperbarui');
         } catch (\Exception $e) {
             DB::rollBack();
-            return $this->errorResponse('Gagal memperbarui data guru: ' . $e->getMessage(), 500);
+            return $this->errorResponse('Gagal memperbarui orang tua: ' . $e->getMessage(), 500);
         }
     }
 
     public function destroy(Request $request, $id)
     {
-        $teacher = Teacher::where('school_id', $request->user()->school_id)->find($id);
+        $parent = StudentParent::where('school_id', $request->user()->school_id)->find($id);
 
-        if (!$teacher) {
-            return $this->errorResponse('Data guru tidak ditemukan', 404);
+        if (!$parent) {
+            return $this->errorResponse('Data orang tua tidak ditemukan', 404);
         }
 
-        $teacher->delete();
-        return $this->successResponse(null, 'Data guru berhasil dihapus');
+        $parent->delete();
+        return $this->successResponse(null, 'Data orang tua berhasil dihapus');
     }
 }

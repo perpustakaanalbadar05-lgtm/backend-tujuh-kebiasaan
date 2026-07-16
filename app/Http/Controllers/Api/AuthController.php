@@ -41,7 +41,17 @@ class AuthController extends Controller
         $user = $request->user();
         
         // Buat token dengan membawa role sebagai identifier (abilities)
-        $token = $user->createToken('auth_token', [$user->role])->plainTextToken;
+        $token = clone $user->createToken('auth_token')->plainTextToken;
+
+        // Log Activity
+        \Illuminate\Support\Facades\DB::table('activity_logs')->insert([
+            'user_id' => $user->id,
+            'school_id' => $user->school_id,
+            'action' => 'Login',
+            'description' => 'User berhasil login ke dalam sistem.',
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
 
         return $this->successResponse([
             'access_token' => $token,
@@ -65,7 +75,18 @@ class AuthController extends Controller
      */
     public function logout(Request $request)
     {
-        // Menghapus token saat ini
+        $user = clone $request->user();
+
+        // Log Activity
+        \Illuminate\Support\Facades\DB::table('activity_logs')->insert([
+            'user_id' => $user->id,
+            'school_id' => $user->school_id,
+            'action' => 'Logout',
+            'description' => 'User keluar dari sistem.',
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
         $request->user()->currentAccessToken()->delete();
 
         return $this->successResponse(null, 'Berhasil logout');

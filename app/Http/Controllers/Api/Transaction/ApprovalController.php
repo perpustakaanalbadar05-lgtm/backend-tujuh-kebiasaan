@@ -40,6 +40,15 @@ class ApprovalController extends Controller
             ]
         );
 
+        if ($journal->student && $journal->student->user_id) {
+            \App\Models\Notification::create([
+                'user_id' => $journal->student->user_id,
+                'title' => 'Jurnal Divalidasi Guru',
+                'message' => 'Jurnal Anda tanggal ' . $journal->date . ' telah di' . ($request->status == 'approved' ? 'setujui' : 'tolak') . ' oleh Guru.',
+                'url' => '/dashboard/journal',
+            ]);
+        }
+
         return $this->successResponse($approval, 'Persetujuan guru berhasil disimpan');
     }
 
@@ -69,6 +78,15 @@ class ApprovalController extends Controller
                 'approved_at' => now(),
             ]
         );
+
+        if ($journal->student && $journal->student->user_id) {
+            \App\Models\Notification::create([
+                'user_id' => $journal->student->user_id,
+                'title' => 'Jurnal Divalidasi Orangtua',
+                'message' => 'Jurnal Anda tanggal ' . $journal->date . ' telah di' . ($request->status == 'approved' ? 'setujui' : 'tolak') . ' oleh Orangtua.',
+                'url' => '/dashboard/journal',
+            ]);
+        }
 
         return $this->successResponse($approval, 'Persetujuan orang tua berhasil disimpan');
     }

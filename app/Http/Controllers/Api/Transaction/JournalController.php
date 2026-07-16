@@ -108,6 +108,20 @@ class JournalController extends Controller
             JournalDetail::insert($details);
 
             DB::commit();
+
+            // Create notification for class teacher
+            if ($student && $student->schoolClass && $student->schoolClass->teacher_id) {
+                $teacher = \App\Models\Teacher::find($student->schoolClass->teacher_id);
+                if ($teacher && $teacher->user_id) {
+                    \App\Models\Notification::create([
+                        'user_id' => $teacher->user_id,
+                        'title' => 'Jurnal Baru: ' . $student->name,
+                        'message' => 'Siswa ' . $student->name . ' telah mengirimkan jurnal untuk tanggal ' . $date . '. Mohon segera divalidasi.',
+                        'url' => '/dashboard/approvals',
+                    ]);
+                }
+            }
+
             return $this->successResponse($journal->load('details'), 'Jurnal berhasil disubmit', 201);
         } catch (\Exception $e) {
             DB::rollBack();

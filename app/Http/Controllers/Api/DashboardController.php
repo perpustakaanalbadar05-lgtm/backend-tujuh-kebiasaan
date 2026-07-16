@@ -18,15 +18,47 @@ class DashboardController extends Controller
     public function stats(Request $request)
     {
         $user = $request->user();
+
+        // MODE YAYASAN (SUPERADMIN)
+        if ($user->role === 'superadmin') {
+            $totalSchools = \App\Models\School::where('status', 'active')->count();
+            $totalStudents = Student::where('status', 'active')->count();
+            $totalTeachers = Teacher::count();
+
+            $startOfWeek = Carbon::now()->startOfWeek();
+            $endOfWeek = Carbon::now()->endOfWeek();
+
+            // Leaderboard Sekolah (Berdasarkan jumlah jurnal minggu ini)
+            $leaderboard = \App\Models\School::where('status', 'active')
+                ->withCount(['students as active_journals' => function ($query) use ($startOfWeek, $endOfWeek) {
+                    $query->join('journals', 'students.id', '=', 'journals.student_id')
+                          ->whereBetween('journals.date', [$startOfWeek, $endOfWeek]);
+                }])
+                ->orderByDesc('active_journals')
+                ->take(5)
+                ->get()
+                ->map(function ($school) {
+                    return [
+                        'name' => $school->name,
+                        'journals' => $school->active_journals
+                    ];
+                });
+
+            return $this->successResponse([
+                'type' => 'yayasan',
+                'total_schools' => $totalSchools,
+                'total_students' => $totalStudents,
+                'total_teachers' => $totalTeachers,
+                'leaderboard' => $leaderboard
+            ], 'Statistik yayasan berhasil diambil');
+        }
+
+        // MODE SEKOLAH (ADMIN, GURU, SISWA, ORTU)
         $schoolId = $user->school_id;
 
-        // 1. Total Students
         $totalStudents = Student::where('school_id', $schoolId)->where('status', 'active')->count();
-
-        // 2. Total Teachers
         $totalTeachers = Teacher::where('school_id', $schoolId)->count();
 
-        // 3. Jurnal Minggu Ini
         $startOfWeek = Carbon::now()->startOfWeek();
         $endOfWeek = Carbon::now()->endOfWeek();
         
@@ -36,19 +68,14 @@ class DashboardController extends Controller
         ->whereBetween('date', [$startOfWeek, $endOfWeek])
         ->count();
 
-        // 4. Activity Rate (Tingkat Aktivitas)
-        // Rumus: (Jurnal minggu ini) / (Total Siswa x hari-berjalan dalam minggu ini)
-        $dayOfWeek = Carbon::now()->dayOfWeekIso; // 1 (Senin) - 7 (Minggu)
+        $dayOfWeek = Carbon::now()->dayOfWeekIso; 
         $maxPossibleJournals = $totalStudents * $dayOfWeek;
         $activityRate = $maxPossibleJournals > 0 
             ? round(($journalsThisWeek / $maxPossibleJournals) * 100) 
             : 0;
 
-        // Bounding max 100%
         if ($activityRate > 100) $activityRate = 100;
 
-        // 5. Trend Chart (7 Hari Terakhir)
-        // Kita butuh struktur: { name: 'Senin', partisipasi: 12 }
         $chartData = [];
         for ($i = 6; $i >= 0; $i--) {
             $date = Carbon::now()->subDays($i);
@@ -58,7 +85,6 @@ class DashboardController extends Controller
             ->whereDate('date', $date->format('Y-m-d'))
             ->count();
 
-            // Menerjemahkan hari ke bahasa Indonesia
             $hariIndo = ['Minggu', 'Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu'];
             
             $chartData[] = [
@@ -68,11 +94,12 @@ class DashboardController extends Controller
         }
 
         return $this->successResponse([
+            'type' => 'school',
             'total_students' => $totalStudents,
             'total_teachers' => $totalTeachers,
             'journals_this_week' => $journalsThisWeek,
             'activity_rate' => $activityRate,
             'chart_data' => $chartData
-        ], 'Statistik dashboard berhasil diambil');
+        ], 'Statistik sekolah berhasil diambil');
     }
 }

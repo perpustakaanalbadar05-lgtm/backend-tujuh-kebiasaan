@@ -11,14 +11,37 @@ Route::post('/login', [AuthController::class, 'login']);
 Route::middleware('auth:sanctum')->group(function () {
     Route::post('/logout', [AuthController::class, 'logout']);
     Route::get('/me', [AuthController::class, 'me']);
+
+    // Profile
+    Route::get('/profile', [\App\Http\Controllers\Api\ProfileController::class, 'show']);
+    Route::put('/profile', [\App\Http\Controllers\Api\ProfileController::class, 'update']);
+    Route::put('/change-password', [\App\Http\Controllers\Api\ProfileController::class, 'changePassword']);
     
     // Master Data Routes
     Route::prefix('master')->group(function() {
+        Route::apiResource('schools', \App\Http\Controllers\Api\Master\SchoolController::class);
+        Route::patch('schools/{id}/status', [\App\Http\Controllers\Api\Master\SchoolController::class, 'toggleStatus']);
+
         Route::apiResource('students', \App\Http\Controllers\Api\Master\StudentController::class);
         Route::apiResource('teachers', \App\Http\Controllers\Api\Master\TeacherController::class);
         Route::apiResource('habits', \App\Http\Controllers\Api\Master\HabitController::class);
         Route::apiResource('academic-years', \App\Http\Controllers\Api\Master\AcademicYearController::class);
         Route::apiResource('classes', \App\Http\Controllers\Api\Master\SchoolClassController::class);
+        Route::apiResource('semesters', \App\Http\Controllers\Api\Master\SemesterController::class);
+        Route::patch('semesters/{id}/active', [\App\Http\Controllers\Api\Master\SemesterController::class, 'activate']);
+
+        Route::apiResource('holidays', \App\Http\Controllers\Api\Master\HolidayController::class);
+        Route::apiResource('parents', \App\Http\Controllers\Api\Master\ParentController::class);
+        Route::apiResource('predicates', \App\Http\Controllers\Api\Master\PredicateController::class);
+
+        // Mapping Routes
+        Route::get('mappings/teacher-classes', [\App\Http\Controllers\Api\Master\MappingController::class, 'teacherClasses']);
+        Route::post('mappings/teacher-classes', [\App\Http\Controllers\Api\Master\MappingController::class, 'assignTeacherClass']);
+        Route::delete('mappings/teacher-classes/{id}', [\App\Http\Controllers\Api\Master\MappingController::class, 'removeTeacherClass']);
+
+        Route::get('mappings/parent-students', [\App\Http\Controllers\Api\Master\MappingController::class, 'parentStudents']);
+        Route::post('mappings/parent-students', [\App\Http\Controllers\Api\Master\MappingController::class, 'assignParentStudent']);
+        Route::delete('mappings/parent-students/{id}', [\App\Http\Controllers\Api\Master\MappingController::class, 'removeParentStudent']);
     });
 
     // Transaction Routes
@@ -35,10 +58,30 @@ Route::middleware('auth:sanctum')->group(function () {
     // Dashboard Analytics
     Route::get('/dashboard/stats', [\App\Http\Controllers\Api\DashboardController::class, 'stats']);
 
+    // Monitoring
+    Route::prefix('monitoring')->group(function() {
+        Route::get('/daily', [\App\Http\Controllers\Api\MonitoringController::class, 'daily']);
+        Route::get('/weekly', [\App\Http\Controllers\Api\MonitoringController::class, 'weekly']);
+        Route::get('/monthly', [\App\Http\Controllers\Api\MonitoringController::class, 'monthly']);
+        Route::get('/semester', [\App\Http\Controllers\Api\MonitoringController::class, 'semester']);
+    });
+
     // Reports / Recap
     Route::get('/reports/student/{studentId}', [\App\Http\Controllers\Api\ReportController::class, 'getStudentReport']);
 
     // Evaluation
     Route::get('/evaluations', [\App\Http\Controllers\Api\EvaluationController::class, 'index']);
     Route::post('/evaluations/{id}/submit', [\App\Http\Controllers\Api\EvaluationController::class, 'submit']);
+
+    // Notifications
+    Route::get('/notifications', [\App\Http\Controllers\Api\NotificationController::class, 'index']);
+    Route::post('/notifications/read-all', [\App\Http\Controllers\Api\NotificationController::class, 'markAllAsRead']);
+    Route::post('/notifications/{id}/read', [\App\Http\Controllers\Api\NotificationController::class, 'markAsRead']);
+
+    // Announcements
+    Route::apiResource('announcements', \App\Http\Controllers\Api\AnnouncementController::class);
+
+    // Audit & Activity Logs
+    Route::get('/activity-logs', [\App\Http\Controllers\Api\AuditLogController::class, 'activityLogs']);
+    Route::get('/audit-logs', [\App\Http\Controllers\Api\AuditLogController::class, 'auditLogs']);
 });
