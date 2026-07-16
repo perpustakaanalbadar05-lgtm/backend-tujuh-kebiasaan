@@ -1,0 +1,73 @@
+<?php
+
+namespace App\Http\Controllers\Api;
+
+use App\Http\Controllers\Controller;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
+use App\Traits\ApiResponse;
+
+class AuthController extends Controller
+{
+    use ApiResponse;
+
+    /**
+     * Login User and create token
+     */
+    public function login(Request $request)
+    {
+        $request->validate([
+            'username' => 'required|string',
+            'password' => 'required|string'
+        ]);
+
+        $credentials = [
+            'username' => $request->username,
+            'password' => $request->password
+        ];
+
+        // Fallback to email if it looks like an email
+        if (filter_var($request->username, FILTER_VALIDATE_EMAIL)) {
+            $credentials = [
+                'email' => $request->username,
+                'password' => $request->password
+            ];
+        }
+
+        if (!Auth::attempt($credentials)) {
+            return $this->errorResponse('Kredensial tidak valid', 401);
+        }
+
+        $user = $request->user();
+        
+        // Buat token dengan membawa role sebagai identifier (abilities)
+        $token = $user->createToken('auth_token', [$user->role])->plainTextToken;
+
+        return $this->successResponse([
+            'access_token' => $token,
+            'token_type' => 'Bearer',
+            'user' => $user
+        ], 'Login berhasil');
+    }
+
+    /**
+     * Get User Profile
+     */
+    public function me(Request $request)
+    {
+        // Load relasi sekolah jika ada
+        $user = $request->user()->load('school');
+        return $this->successResponse($user, 'Profil pengguna berhasil dimuat');
+    }
+
+    /**
+     * Logout User (Revoke Token)
+     */
+    public function logout(Request $request)
+    {
+        // Menghapus token saat ini
+        $request->user()->currentAccessToken()->delete();
+
+        return $this->successResponse(null, 'Berhasil logout');
+    }
+}
