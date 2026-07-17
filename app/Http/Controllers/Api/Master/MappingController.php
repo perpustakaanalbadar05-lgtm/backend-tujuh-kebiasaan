@@ -151,4 +151,76 @@ class MappingController extends Controller
 
         return $this->successResponse(null, 'Mapping orang tua-siswa berhasil dihapus');
     }
+
+    /**
+     * Get teacher-student (validator) mappings.
+     */
+    public function teacherStudents(Request $request)
+    {
+        $schoolId = $request->user()->school_id;
+
+        $mappings = \App\Models\Student::with(['validator', 'schoolClass'])
+            ->where('school_id', $schoolId)
+            ->whereNotNull('validator_id')
+            ->select('id', 'name as student_name', 'nis', 'class_id', 'validator_id')
+            ->get()
+            ->map(function ($student) {
+                return [
+                    'id' => $student->id,
+                    'student_id' => $student->id,
+                    'student_name' => $student->student_name,
+                    'nis' => $student->nis,
+                    'class_name' => $student->schoolClass ? $student->schoolClass->name : '-',
+                    'teacher_id' => $student->validator_id,
+                    'teacher_name' => $student->validator ? $student->validator->name : '-',
+                ];
+            });
+
+        return $this->successResponse($mappings, 'Mapping guru-siswa (validator) berhasil diambil');
+    }
+
+    /**
+     * Bulk assign a teacher as validator to multiple students.
+     */
+    public function assignTeacherStudentsBulk(Request $request)
+    {
+        $request->validate([
+            'teacher_id' => 'required|exists:teachers,id',
+            'student_ids' => 'required|array',
+            'student_ids.*' => 'exists:students,id',
+        ]);
+
+        $schoolId = $request->user()->school_id;
+
+        // Verify that the teacher belongs to the same school
+        $teacher = \App\Models\Teacher::where('school_id', $schoolId)->find($request->teacher_id);
+        if (!$teacher) {
+            return $this->errorResponse('Guru tidak ditemukan atau tidak berada di sekolah ini', 404);
+        }
+
+        // Update validator_id for all specified students
+        \App\Models\Student::where('school_id', $schoolId)
+            ->whereIn('id', $request->student_ids)
+            ->update(['validator_id' => $request->teacher_id]);
+
+        return $this->successResponse(null, count($request->student_ids) . ' Siswa berhasil ditugaskan ke validator', 200);
+    }
+
+    /**
+     * Remove teacher-student (validator) mapping (set validator_id to null).
+     */
+    public function removeTeacherStudent(Request $request, $studentId)
+    {
+        $schoolId = $request->user()->school_id;
+        
+        $student = \App\Models\Student::where('school_id', $schoolId)->find($studentId);
+        if (!$student) {
+            return $this->errorResponse('Data siswa tidak ditemukan', 404);
+        }
+
+        $student->validator_id = null;
+        $student->save();
+
+        return $this->successResponse(null, 'Mapping guru-siswa berhasil dihapus');
+    }
 }

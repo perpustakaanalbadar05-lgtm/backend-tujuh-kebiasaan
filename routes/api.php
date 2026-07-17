@@ -69,6 +69,10 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::post('mappings/parent-students', [\App\Http\Controllers\Api\Master\MappingController::class, 'assignParentStudent']);
         Route::delete('mappings/parent-students/{id}', [\App\Http\Controllers\Api\Master\MappingController::class, 'removeParentStudent']);
 
+        Route::get('mappings/teacher-students', [\App\Http\Controllers\Api\Master\MappingController::class, 'teacherStudents']);
+        Route::post('mappings/teacher-students/bulk', [\App\Http\Controllers\Api\Master\MappingController::class, 'assignTeacherStudentsBulk']);
+        Route::delete('mappings/teacher-students/{id}', [\App\Http\Controllers\Api\Master\MappingController::class, 'removeTeacherStudent']);
+
         // Gamification Master
         Route::apiResource('badges', \App\Http\Controllers\Api\Master\BadgeController::class);
     });

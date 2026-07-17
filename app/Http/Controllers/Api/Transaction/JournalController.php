@@ -44,8 +44,11 @@ class JournalController extends Controller
                 $classIds2 = \App\Models\SchoolClass::where('teacher_id', $teacher->id)->pluck('id')->toArray();
                 $allClassIds = array_unique(array_merge($classIds, $classIds2));
                 
-                $query->whereHas('student', function($q) use ($allClassIds) {
-                    $q->whereIn('class_id', $allClassIds);
+                $query->whereHas('student', function($q) use ($allClassIds, $teacher) {
+                    $q->where('validator_id', $teacher->id)
+                      ->orWhere(function($subQ) use ($allClassIds) {
+                          $subQ->whereNull('validator_id')->whereIn('class_id', $allClassIds);
+                      });
                 });
             } else {
                 $query->where('id', 0);
