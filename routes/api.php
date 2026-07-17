@@ -32,10 +32,12 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::apiResource('schools', \App\Http\Controllers\Api\Master\SchoolController::class);
         Route::patch('schools/{id}/status', [\App\Http\Controllers\Api\Master\SchoolController::class, 'toggleStatus']);
 
+        Route::get('students/template', [\App\Http\Controllers\Api\Master\StudentController::class, 'exportTemplate']);
         Route::get('students/export', [\App\Http\Controllers\Api\Master\StudentController::class, 'export']);
         Route::patch('students/{id}/reset-password', [\App\Http\Controllers\Api\Master\StudentController::class, 'resetPassword']);
         Route::apiResource('students', \App\Http\Controllers\Api\Master\StudentController::class);
 
+        Route::get('teachers/template', [\App\Http\Controllers\Api\Master\TeacherController::class, 'exportTemplate']);
         Route::get('teachers/export', [\App\Http\Controllers\Api\Master\TeacherController::class, 'export']);
         Route::patch('teachers/{id}/reset-password', [\App\Http\Controllers\Api\Master\TeacherController::class, 'resetPassword']);
         Route::apiResource('teachers', \App\Http\Controllers\Api\Master\TeacherController::class);

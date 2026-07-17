@@ -7,6 +7,9 @@ use Illuminate\Http\Request;
 use App\Models\Student;
 use App\Models\Teacher;
 use App\Models\Journal;
+use App\Models\StudentParent;
+use App\Models\Predicate;
+use App\Models\StudentBadge;
 use App\Traits\ApiResponse;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
@@ -106,6 +109,81 @@ class DashboardController extends Controller
                 'name' => $hariIndo[$date->dayOfWeek],
                 'partisipasi' => $count
             ];
+        }
+
+        if ($user->role === 'siswa' || $user->role === 'orangtua') {
+            $studentId = null;
+            if ($user->role === 'siswa') {
+                $student = Student::where('user_id', $user->id)->first();
+                $studentId = $student ? $student->id : null;
+            } else {
+                $parent = StudentParent::where('user_id', $user->id)->first();
+                if ($parent) {
+                    $student = $parent->students()->first();
+                    $studentId = $student ? $student->id : null;
+                }
+            }
+
+            if ($studentId) {
+                // Personal Stats
+                $totalScore = Journal::where('student_id', $studentId)->whereNotNull('score')->sum('score');
+                
+                $journalsThisMonth = Journal::where('student_id', $studentId)
+                    ->whereMonth('date', Carbon::now()->month)
+                    ->whereYear('date', Carbon::now()->year)
+                    ->count();
+
+                $filledToday = Journal::where('student_id', $studentId)
+                    ->whereDate('date', Carbon::now()->format('Y-m-d'))
+                    ->exists();
+
+                $predicate = Predicate::where('school_id', $schoolId)
+                    ->where('min_score', '<=', $totalScore)
+                    ->where('max_score', '>=', $totalScore)
+                    ->first();
+                $currentPredicate = $predicate ? $predicate->name : 'Belum Ada Predikat';
+
+                // Recent Badges
+                $recentBadges = StudentBadge::with('badge')
+                    ->where('student_id', $studentId)
+                    ->orderByDesc('awarded_at')
+                    ->take(3)
+                    ->get()
+                    ->map(function ($sb) {
+                        return [
+                            'name' => $sb->badge->name,
+                            'icon' => $sb->badge->icon,
+                            'awarded_at' => Carbon::parse($sb->awarded_at)->diffForHumans()
+                        ];
+                    });
+
+                // Personal chart data (last 7 days - scores)
+                $studentChartData = [];
+                for ($i = 6; $i >= 0; $i--) {
+                    $date = Carbon::now()->subDays($i);
+                    $journal = Journal::where('student_id', $studentId)
+                        ->whereDate('date', $date->format('Y-m-d'))
+                        ->first();
+
+                    $hariIndo = ['Minggu', 'Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu'];
+                    
+                    $studentChartData[] = [
+                        'name' => $hariIndo[$date->dayOfWeek],
+                        'score' => $journal ? ($journal->score ?? 0) : 0
+                    ];
+                }
+
+                return $this->successResponse([
+                    'type' => 'student',
+                    'student_name' => $student->name,
+                    'total_score' => $totalScore,
+                    'journals_this_month' => $journalsThisMonth,
+                    'current_predicate' => $currentPredicate,
+                    'filled_today' => $filledToday,
+                    'recent_badges' => $recentBadges,
+                    'chart_data' => $studentChartData
+                ], 'Statistik personal berhasil diambil');
+            }
         }
 
         return $this->successResponse([

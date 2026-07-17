@@ -7,6 +7,9 @@ use App\Models\Teacher;
 use App\Models\User;
 use Illuminate\Http\Request;
 use App\Traits\ApiResponse;
+use App\Exports\TeachersExport;
+use App\Exports\TeacherTemplateExport;
+use Maatwebsite\Excel\Facades\Excel;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\DB;
 
@@ -161,6 +164,11 @@ class TeacherController extends Controller
     public function export(Request $request)
     {
         $schoolId = $request->user()->school_id;
-        return \Maatwebsite\Excel\Facades\Excel::download(new \App\Exports\TeachersExport($schoolId), 'data_guru.xlsx');
+        return Excel::download(new TeachersExport($schoolId), 'data_guru.xlsx');
+    }
+
+    public function exportTemplate()
+    {
+        return Excel::download(new TeacherTemplateExport, 'template_data_guru.xlsx');
     }
 }

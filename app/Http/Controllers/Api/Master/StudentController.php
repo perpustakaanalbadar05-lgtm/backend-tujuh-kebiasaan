@@ -7,6 +7,9 @@ use App\Models\Student;
 use App\Models\User;
 use Illuminate\Http\Request;
 use App\Traits\ApiResponse;
+use App\Exports\StudentsExport;
+use App\Exports\StudentTemplateExport;
+use Maatwebsite\Excel\Facades\Excel;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\DB;
 
@@ -162,6 +165,11 @@ class StudentController extends Controller
     public function export(Request $request)
     {
         $schoolId = $request->user()->school_id;
-        return \Maatwebsite\Excel\Facades\Excel::download(new \App\Exports\StudentsExport($schoolId), 'data_siswa.xlsx');
+        return Excel::download(new StudentsExport($schoolId), 'data_siswa.xlsx');
+    }
+
+    public function exportTemplate()
+    {
+        return Excel::download(new StudentTemplateExport, 'template_data_siswa.xlsx');
     }
 }
