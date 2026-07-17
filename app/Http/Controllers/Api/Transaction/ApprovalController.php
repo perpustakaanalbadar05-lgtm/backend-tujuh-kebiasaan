@@ -31,6 +31,8 @@ class ApprovalController extends Controller
 
         $teacher = Teacher::where('user_id', $user->id)->first();
         
+        // If it's an admin validating, teacher will be null, and teacher_id will be null.
+        // We can track who approved it in the future using approved_by, but for now teacher_id nullable is enough.
         $approval = TeacherApproval::updateOrCreate(
             ['journal_id' => $journal->id],
             [

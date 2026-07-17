@@ -41,7 +41,7 @@ class AuthController extends Controller
         $user = $request->user();
         
         // Buat token dengan membawa role sebagai identifier (abilities)
-        $token = clone $user->createToken('auth_token')->plainTextToken;
+        $token = $user->createToken('auth_token')->plainTextToken;
 
         // Log Activity
         \Illuminate\Support\Facades\DB::table('activity_logs')->insert([
@@ -75,7 +75,7 @@ class AuthController extends Controller
      */
     public function logout(Request $request)
     {
-        $user = clone $request->user();
+        $user = $request->user();
 
         // Log Activity
         \Illuminate\Support\Facades\DB::table('activity_logs')->insert([

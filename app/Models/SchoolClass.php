@@ -11,4 +11,14 @@ class SchoolClass extends Model
 
     protected $table = 'classes';
     protected $guarded = ['id'];
+
+    public function academicYear()
+    {
+        return $this->belongsTo(AcademicYear::class);
+    }
+
+    public function teacher()
+    {
+        return $this->belongsTo(Teacher::class);
+    }
 }

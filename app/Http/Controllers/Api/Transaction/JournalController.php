@@ -7,6 +7,9 @@ use App\Models\Journal;
 use App\Models\JournalDetail;
 use App\Models\Student;
 use App\Models\StudentParent;
+use App\Models\Setting;
+use App\Models\Semester;
+use App\Models\Holiday;
 use Illuminate\Http\Request;
 use App\Traits\ApiResponse;
 use Illuminate\Support\Facades\DB;
@@ -46,7 +49,7 @@ class JournalController extends Controller
             });
         }
 
-        $journals = $query->orderBy('date', 'desc')->paginate(15);
+        $journals = $query->orderBy('journal_date', 'desc')->paginate(15);
         return $this->successResponse($journals, 'Data jurnal berhasil diambil');
     }
 
@@ -71,9 +74,35 @@ class JournalController extends Controller
         $date = Carbon::parse($request->date)->format('Y-m-d');
 
         // Validasi: 1 Hari Maksimal 1 Jurnal per Siswa
-        $existingJournal = Journal::where('student_id', $student->id)->where('date', $date)->first();
+        $existingJournal = Journal::where('student_id', $student->id)->where('journal_date', $date)->first();
         if ($existingJournal) {
             return $this->errorResponse("Anda sudah mengisi jurnal untuk tanggal {$date}", 422);
+        }
+
+        // Validasi Jam Operasional
+        $settings = Setting::where('school_id', $student->school_id)->pluck('value', 'key');
+        $startTime = $settings['journal_start_time'] ?? '00:00';
+        $endTime = $settings['journal_end_time'] ?? '23:59';
+        $now = now()->format('H:i');
+
+        if ($now < $startTime || $now > $endTime) {
+            return $this->errorResponse("Sistem pengisian jurnal hanya dibuka dari jam {$startTime} sampai {$endTime}", 422);
+        }
+
+        // Validasi Hari Libur
+        $isHoliday = Holiday::where('school_id', $student->school_id)
+            ->where('start_date', '<=', $date)
+            ->where('end_date', '>=', $date)
+            ->exists();
+            
+        if ($isHoliday) {
+            return $this->errorResponse("Tanggal {$date} adalah hari libur, Anda tidak perlu mengisi jurnal", 422);
+        }
+
+        // Cari Semester dan Tahun Ajaran Aktif
+        $activeSemester = Semester::where('school_id', $student->school_id)->where('active', true)->first();
+        if (!$activeSemester) {
+            return $this->errorResponse('Tidak ada semester aktif di sekolah Anda. Harap hubungi Admin.', 400);
         }
 
         DB::beginTransaction();
@@ -85,10 +114,11 @@ class JournalController extends Controller
             $score = $totalHabits > 0 ? round(($doneHabits / $totalHabits) * 100) : 0;
 
             $journal = Journal::create([
+                'school_id' => $student->school_id,
                 'student_id' => $student->id,
-                'academic_year_id' => $student->schoolClass ? $student->schoolClass->academic_year_id : null, // Idealnya ambil dari relasi
-                'semester_id' => null, // Opsional
-                'date' => $date,
+                'academic_year_id' => $activeSemester->academic_year_id,
+                'semester_id' => $activeSemester->id,
+                'journal_date' => $date,
                 'score' => $score,
                 'status' => 'submitted',
                 'created_by' => $user->id,

@@ -23,7 +23,7 @@ class SchoolClassController extends Controller
             $academicYearId = $activeYear ? $activeYear->id : null;
         }
 
-        $query = SchoolClass::where('school_id', $schoolId)->with('academicYear');
+        $query = SchoolClass::where('school_id', $schoolId)->with(['academicYear', 'teacher']);
         if ($academicYearId) {
             $query->where('academic_year_id', $academicYearId);
         }
@@ -37,12 +37,14 @@ class SchoolClassController extends Controller
         $request->validate([
             'grade' => 'required|string|max:50',
             'name' => 'required|string|max:255',
-            'academic_year_id' => 'required|exists:academic_years,id'
+            'academic_year_id' => 'required|exists:academic_years,id',
+            'teacher_id' => 'nullable|exists:teachers,id'
         ]);
 
         $schoolClass = SchoolClass::create([
             'school_id' => $request->user()->school_id,
             'academic_year_id' => $request->academic_year_id,
+            'teacher_id' => $request->teacher_id,
             'grade' => $request->grade,
             'name' => $request->name,
         ]);
@@ -55,11 +57,12 @@ class SchoolClassController extends Controller
         $request->validate([
             'grade' => 'required|string|max:50',
             'name' => 'required|string|max:255',
-            'academic_year_id' => 'required|exists:academic_years,id'
+            'academic_year_id' => 'required|exists:academic_years,id',
+            'teacher_id' => 'nullable|exists:teachers,id'
         ]);
 
         $schoolClass = SchoolClass::where('school_id', $request->user()->school_id)->findOrFail($id);
-        $schoolClass->update($request->only(['grade', 'name', 'academic_year_id']));
+        $schoolClass->update($request->only(['grade', 'name', 'academic_year_id', 'teacher_id']));
 
         return $this->successResponse($schoolClass, 'Kelas berhasil diperbarui');
     }

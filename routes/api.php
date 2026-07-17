@@ -18,15 +18,17 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::put('/change-password', [\App\Http\Controllers\Api\ProfileController::class, 'changePassword']);
 
     // School Profile (Admin Sekolah)
-    Route::get('/school-profile', [\App\Http\Controllers\Api\SchoolProfileController::class, 'show']);
-    Route::post('/school-profile', [\App\Http\Controllers\Api\SchoolProfileController::class, 'update']); // Use POST for multipart form data
+    Route::middleware(['role:admin,superadmin'])->group(function() {
+        Route::get('/school-profile', [\App\Http\Controllers\Api\SchoolProfileController::class, 'show']);
+        Route::post('/school-profile', [\App\Http\Controllers\Api\SchoolProfileController::class, 'update']);
+    });
     
     // Import Data
     Route::post('/import/students', [\App\Http\Controllers\Api\ImportController::class, 'importStudents']);
     Route::post('/import/teachers', [\App\Http\Controllers\Api\ImportController::class, 'importTeachers']);
 
     // Master Data Routes
-    Route::prefix('master')->group(function() {
+    Route::prefix('master')->middleware(['role:admin,superadmin'])->group(function() {
         Route::apiResource('schools', \App\Http\Controllers\Api\Master\SchoolController::class);
         Route::patch('schools/{id}/status', [\App\Http\Controllers\Api\Master\SchoolController::class, 'toggleStatus']);
 
@@ -92,8 +94,10 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/reports/export', [\App\Http\Controllers\Api\ReportController::class, 'exportExcel']);
 
     // Evaluation
-    Route::get('/evaluations', [\App\Http\Controllers\Api\EvaluationController::class, 'index']);
-    Route::post('/evaluations/{id}/submit', [\App\Http\Controllers\Api\EvaluationController::class, 'submit']);
+    Route::middleware(['role:guru,admin,superadmin'])->group(function() {
+        Route::get('/evaluations', [\App\Http\Controllers\Api\EvaluationController::class, 'index']);
+        Route::post('/evaluations/{id}/submit', [\App\Http\Controllers\Api\EvaluationController::class, 'submit']);
+    });
 
     // Notifications
     Route::get('/notifications', [\App\Http\Controllers\Api\NotificationController::class, 'index']);
