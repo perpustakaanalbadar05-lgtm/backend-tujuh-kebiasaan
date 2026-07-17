@@ -23,6 +23,9 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::post('/school-profile', [\App\Http\Controllers\Api\SchoolProfileController::class, 'update']);
     });
     
+    // Students list for dropdowns (accessible by teacher, admin)
+    Route::get('/students', [\App\Http\Controllers\Api\Master\StudentController::class, 'index']);
+    
     // Import Data
     Route::post('/import/students', [\App\Http\Controllers\Api\ImportController::class, 'importStudents']);
     Route::post('/import/teachers', [\App\Http\Controllers\Api\ImportController::class, 'importTeachers']);

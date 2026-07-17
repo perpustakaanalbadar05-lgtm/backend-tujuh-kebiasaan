@@ -36,8 +36,8 @@ class ReportController extends Controller
         // Ambil semua jurnal siswa di bulan & tahun yang diminta
         $journals = Journal::with('details')
             ->where('student_id', $studentId)
-            ->whereMonth('date', $month)
-            ->whereYear('date', $year)
+            ->whereMonth('journal_date', $month)
+            ->whereYear('journal_date', $year)
             ->get();
 
         $totalDays = $journals->count();
