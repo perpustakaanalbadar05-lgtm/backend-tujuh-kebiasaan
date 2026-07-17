@@ -24,6 +24,19 @@ class StudentController extends Controller
         // Eager load relasi schoolClass
         $query = Student::with('schoolClass')->where('school_id', $schoolId);
 
+        // Filter Wali Kelas: Guru hanya melihat siswa dari kelas yang dia ampu
+        if ($request->user()->role === 'guru') {
+            $teacher = \App\Models\Teacher::where('user_id', $request->user()->id)->first();
+            if ($teacher) {
+                $classIds = \Illuminate\Support\Facades\DB::table('class_teacher')->where('teacher_id', $teacher->id)->pluck('class_id')->toArray();
+                $classIds2 = \App\Models\SchoolClass::where('teacher_id', $teacher->id)->pluck('id')->toArray();
+                $allClassIds = array_unique(array_merge($classIds, $classIds2));
+                $query->whereIn('class_id', $allClassIds);
+            } else {
+                $query->where('id', 0);
+            }
+        }
+
         // Pencarian opsional
         if ($request->has('search')) {
             $search = $request->search;

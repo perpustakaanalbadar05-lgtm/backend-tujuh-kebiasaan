@@ -25,4 +25,9 @@ class Student extends Model
     {
         return $this->belongsTo(School::class);
     }
+
+    public function validator()
+    {
+        return $this->belongsTo(Teacher::class, 'validator_id');
+    }
 }

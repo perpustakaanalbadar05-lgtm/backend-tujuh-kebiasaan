@@ -37,11 +37,19 @@ class JournalController extends Controller
             $studentIds = DB::table('student_parents')->where('parent_id', $parent->id)->pluck('student_id');
             $query->whereIn('student_id', $studentIds);
         } elseif ($user->role === 'guru') {
-            // Asumsi guru bisa melihat semua jurnal di sekolahnya, atau hanya kelas yang ia ampu
-            // Untuk kesederhanaan saat ini, guru melihat jurnal di sekolahnya
-            $query->whereHas('student', function($q) use ($user) {
-                $q->where('school_id', $user->school_id);
-            });
+            // Filter Wali Kelas: Guru hanya melihat jurnal dari kelas yang dia ampu
+            $teacher = \App\Models\Teacher::where('user_id', $user->id)->first();
+            if ($teacher) {
+                $classIds = \Illuminate\Support\Facades\DB::table('class_teacher')->where('teacher_id', $teacher->id)->pluck('class_id')->toArray();
+                $classIds2 = \App\Models\SchoolClass::where('teacher_id', $teacher->id)->pluck('id')->toArray();
+                $allClassIds = array_unique(array_merge($classIds, $classIds2));
+                
+                $query->whereHas('student', function($q) use ($allClassIds) {
+                    $q->whereIn('class_id', $allClassIds);
+                });
+            } else {
+                $query->where('id', 0);
+            }
         } elseif ($user->role === 'admin' || $user->role === 'superadmin') {
             // Admin melihat semua jurnal di sekolahnya
             $query->whereHas('student', function($q) use ($user) {
