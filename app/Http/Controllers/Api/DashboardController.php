@@ -35,7 +35,7 @@ class DashboardController extends Controller
             $leaderboard = \App\Models\School::where('status', 'active')
                 ->withCount(['students as active_journals' => function ($query) use ($startOfWeek, $endOfWeek) {
                     $query->join('journals', 'students.id', '=', 'journals.student_id')
-                          ->whereBetween('journals.date', [$startOfWeek, $endOfWeek]);
+                          ->whereBetween('journals.journal_date', [$startOfWeek, $endOfWeek]);
                 }])
                 ->orderByDesc('active_journals')
                 ->take(5)
@@ -51,7 +51,7 @@ class DashboardController extends Controller
             $chartData = [];
             for ($i = 6; $i >= 0; $i--) {
                 $date = Carbon::now()->subDays($i);
-                $count = Journal::whereDate('date', $date->format('Y-m-d'))->count();
+                $count = Journal::whereDate('journal_date', $date->format('Y-m-d'))->count();
 
                 $hariIndo = ['Minggu', 'Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu'];
                 
@@ -83,7 +83,7 @@ class DashboardController extends Controller
         $journalsThisWeek = Journal::whereHas('student', function($q) use ($schoolId) {
             $q->where('school_id', $schoolId);
         })
-        ->whereBetween('date', [$startOfWeek, $endOfWeek])
+        ->whereBetween('journal_date', [$startOfWeek, $endOfWeek])
         ->count();
 
         $dayOfWeek = Carbon::now()->dayOfWeekIso; 
@@ -100,7 +100,7 @@ class DashboardController extends Controller
             $count = Journal::whereHas('student', function($q) use ($schoolId) {
                 $q->where('school_id', $schoolId);
             })
-            ->whereDate('date', $date->format('Y-m-d'))
+            ->whereDate('journal_date', $date->format('Y-m-d'))
             ->count();
 
             $hariIndo = ['Minggu', 'Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu'];
@@ -129,12 +129,12 @@ class DashboardController extends Controller
                 $totalScore = Journal::where('student_id', $studentId)->whereNotNull('score')->sum('score');
                 
                 $journalsThisMonth = Journal::where('student_id', $studentId)
-                    ->whereMonth('date', Carbon::now()->month)
-                    ->whereYear('date', Carbon::now()->year)
+                    ->whereMonth('journal_date', Carbon::now()->month)
+                    ->whereYear('journal_date', Carbon::now()->year)
                     ->count();
 
                 $filledToday = Journal::where('student_id', $studentId)
-                    ->whereDate('date', Carbon::now()->format('Y-m-d'))
+                    ->whereDate('journal_date', Carbon::now()->format('Y-m-d'))
                     ->exists();
 
                 $predicate = Predicate::where('school_id', $schoolId)
@@ -162,7 +162,7 @@ class DashboardController extends Controller
                 for ($i = 6; $i >= 0; $i--) {
                     $date = Carbon::now()->subDays($i);
                     $journal = Journal::where('student_id', $studentId)
-                        ->whereDate('date', $date->format('Y-m-d'))
+                        ->whereDate('journal_date', $date->format('Y-m-d'))
                         ->first();
 
                     $hariIndo = ['Minggu', 'Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu'];

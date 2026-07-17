@@ -14,11 +14,14 @@ class HabitController extends Controller
     public function index(Request $request)
     {
         $schoolId = $request->user()->school_id;
-        
-        // Return semua habit (aktif dan nonaktif) untuk keperluan konfigurasi Master
-        $habits = Habit::where('school_id', $schoolId)
-                       ->orderBy('order_number')
-                       ->get();
+        $query = Habit::where('school_id', $schoolId)->orderBy('order_number');
+
+        // Jika yang mengakses adalah siswa/ortu, hanya tampilkan yang aktif
+        if (in_array($request->user()->role, ['siswa', 'orangtua'])) {
+            $query->where('active', true);
+        }
+
+        $habits = $query->get();
 
         return $this->successResponse($habits, 'Daftar kebiasaan berhasil diambil');
     }

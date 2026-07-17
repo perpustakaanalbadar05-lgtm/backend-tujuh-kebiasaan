@@ -22,7 +22,7 @@ class JournalController extends Controller
     public function index(Request $request)
     {
         $user = $request->user();
-        $query = Journal::with(['details', 'teacherApproval', 'parentApproval', 'student']);
+        $query = Journal::with(['details.habit', 'teacherApproval', 'parentApproval', 'student']);
 
         // Multi-role logic
         if ($user->role === 'siswa') {
@@ -161,7 +161,7 @@ class JournalController extends Controller
 
     public function show(Request $request, $id)
     {
-        $journal = Journal::with(['details', 'teacherApproval', 'parentApproval', 'student'])->find($id);
+        $journal = Journal::with(['details.habit', 'teacherApproval', 'parentApproval', 'student'])->find($id);
         
         if (!$journal) {
             return $this->errorResponse('Data jurnal tidak ditemukan', 404);

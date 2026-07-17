@@ -27,7 +27,10 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/import/students', [\App\Http\Controllers\Api\ImportController::class, 'importStudents']);
     Route::post('/import/teachers', [\App\Http\Controllers\Api\ImportController::class, 'importTeachers']);
 
-    // Master Data Routes
+    // Master Data (Public to authenticated users)
+    Route::get('master/habits', [\App\Http\Controllers\Api\Master\HabitController::class, 'index']);
+
+    // Master Data Routes (Admin Only)
     Route::prefix('master')->middleware(['role:admin,superadmin'])->group(function() {
         Route::apiResource('schools', \App\Http\Controllers\Api\Master\SchoolController::class);
         Route::patch('schools/{id}/status', [\App\Http\Controllers\Api\Master\SchoolController::class, 'toggleStatus']);
@@ -41,7 +44,10 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('teachers/export', [\App\Http\Controllers\Api\Master\TeacherController::class, 'export']);
         Route::patch('teachers/{id}/reset-password', [\App\Http\Controllers\Api\Master\TeacherController::class, 'resetPassword']);
         Route::apiResource('teachers', \App\Http\Controllers\Api\Master\TeacherController::class);
-        Route::apiResource('habits', \App\Http\Controllers\Api\Master\HabitController::class);
+        
+        // Exclude index since it's defined above for all users
+        Route::apiResource('habits', \App\Http\Controllers\Api\Master\HabitController::class)->except('index');
+        
         Route::apiResource('academic-years', \App\Http\Controllers\Api\Master\AcademicYearController::class);
         Route::apiResource('classes', \App\Http\Controllers\Api\Master\SchoolClassController::class);
         Route::apiResource('semesters', \App\Http\Controllers\Api\Master\SemesterController::class);

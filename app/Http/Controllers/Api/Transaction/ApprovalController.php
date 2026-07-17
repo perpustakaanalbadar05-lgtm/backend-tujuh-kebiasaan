@@ -66,7 +66,10 @@ class ApprovalController extends Controller
 
         $request->validate([
             'status' => 'required|in:approved,rejected',
-            'note' => 'nullable|string'
+            'note' => 'nullable|string',
+            'overrides' => 'nullable|array',
+            'overrides.*.id' => 'required|exists:journal_details,id',
+            'overrides.*.is_done' => 'required|boolean',
         ]);
 
         $parent = StudentParent::where('user_id', $user->id)->first();
@@ -80,6 +83,20 @@ class ApprovalController extends Controller
                 'approved_at' => now(),
             ]
         );
+
+        if ($request->status === 'approved' && $request->has('overrides')) {
+            foreach ($request->overrides as $override) {
+                \App\Models\JournalDetail::where('id', $override['id'])
+                    ->where('journal_id', $journal->id)
+                    ->update(['is_done' => $override['is_done']]);
+            }
+            
+            // Recalculate score
+            $totalHabits = $journal->details()->count();
+            $doneHabits = $journal->details()->where('is_done', true)->count();
+            $journal->score = $totalHabits > 0 ? round(($doneHabits / $totalHabits) * 100) : 0;
+            $journal->save();
+        }
 
         if ($journal->student && $journal->student->user_id) {
             \App\Models\Notification::create([
