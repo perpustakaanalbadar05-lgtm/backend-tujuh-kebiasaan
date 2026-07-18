@@ -31,7 +31,9 @@ class HabitController extends Controller
         $request->validate([
             'name' => 'required|string|max:255',
             'order_number' => 'required|integer',
-            'active' => 'boolean'
+            'active' => 'boolean',
+            'start_time' => 'nullable|date_format:H:i',
+            'end_time' => 'nullable|date_format:H:i|after:start_time'
         ]);
 
         $habit = Habit::create([
@@ -39,6 +41,8 @@ class HabitController extends Controller
             'name' => $request->name,
             'order_number' => $request->order_number,
             'active' => $request->input('active', true),
+            'start_time' => $request->start_time,
+            'end_time' => $request->end_time,
         ]);
 
         return $this->successResponse($habit, 'Kebiasaan berhasil ditambahkan', 201);
@@ -49,11 +53,13 @@ class HabitController extends Controller
         $request->validate([
             'name' => 'required|string|max:255',
             'order_number' => 'required|integer',
-            'active' => 'boolean'
+            'active' => 'boolean',
+            'start_time' => 'nullable|date_format:H:i',
+            'end_time' => 'nullable|date_format:H:i|after:start_time'
         ]);
 
         $habit = Habit::where('school_id', $request->user()->school_id)->findOrFail($id);
-        $habit->update($request->only(['name', 'order_number', 'active']));
+        $habit->update($request->only(['name', 'order_number', 'active', 'start_time', 'end_time']));
 
         return $this->successResponse($habit, 'Kebiasaan berhasil diperbarui');
     }

@@ -10,7 +10,5 @@ class Habit extends Model
 {
     use Auditable;
 
-    protected $fillable = [
-        //
-    ];
+    protected $guarded = ['id'];
 }
