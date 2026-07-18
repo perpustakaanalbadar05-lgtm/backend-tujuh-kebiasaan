@@ -9,6 +9,9 @@ use Illuminate\Http\Request;
 use App\Traits\ApiResponse;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\DB;
+use Maatwebsite\Excel\Facades\Excel;
+use App\Exports\ParentsExport;
+use App\Exports\ParentTemplateExport;
 
 class ParentController extends Controller
 {
@@ -131,5 +134,15 @@ class ParentController extends Controller
 
         $parent->delete();
         return $this->successResponse(null, 'Data orang tua berhasil dihapus');
+    }
+
+    public function exportTemplate()
+    {
+        return Excel::download(new ParentTemplateExport, 'template_orangtua.xlsx');
+    }
+
+    public function export()
+    {
+        return Excel::download(new ParentsExport, 'data_orangtua.xlsx');
     }
 }

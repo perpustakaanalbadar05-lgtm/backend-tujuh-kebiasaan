@@ -29,6 +29,7 @@ Route::middleware('auth:sanctum')->group(function () {
     // Import Data
     Route::post('/import/students', [\App\Http\Controllers\Api\ImportController::class, 'importStudents']);
     Route::post('/import/teachers', [\App\Http\Controllers\Api\ImportController::class, 'importTeachers']);
+    Route::post('/import/parents', [\App\Http\Controllers\Api\ImportController::class, 'importParents']);
 
     // Master Data (Public to authenticated users)
     Route::get('master/habits', [\App\Http\Controllers\Api\Master\HabitController::class, 'index']);
@@ -57,7 +58,11 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::patch('semesters/{id}/active', [\App\Http\Controllers\Api\Master\SemesterController::class, 'activate']);
 
         Route::apiResource('holidays', \App\Http\Controllers\Api\Master\HolidayController::class);
+        
+        Route::get('parents/template', [\App\Http\Controllers\Api\Master\ParentController::class, 'exportTemplate']);
+        Route::get('parents/export', [\App\Http\Controllers\Api\Master\ParentController::class, 'export']);
         Route::apiResource('parents', \App\Http\Controllers\Api\Master\ParentController::class);
+        
         Route::apiResource('predicates', \App\Http\Controllers\Api\Master\PredicateController::class);
 
         // Mapping Routes
