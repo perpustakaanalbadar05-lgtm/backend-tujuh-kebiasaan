@@ -34,7 +34,9 @@ class StudentsImport implements ToModel, WithHeadingRow, WithValidation, SkipsEm
 
             // 2. Buat Student
             return new Student([
+                'school_id' => $this->schoolId,
                 'user_id' => $user->id,
+                'class_id' => $row['class_id'],
                 'nis' => $row['nis'],
                 'nisn' => $row['nisn'] ?? null,
                 'name' => $row['nama'],
@@ -52,6 +54,7 @@ class StudentsImport implements ToModel, WithHeadingRow, WithValidation, SkipsEm
             'nis' => 'required',
             'nama' => 'required|string',
             'jenis_kelamin' => 'required|in:l,p,L,P',
+            'class_id' => 'required|exists:classes,id',
         ];
     }
 }
