@@ -55,4 +55,23 @@ class TeachersImport implements ToModel, WithHeadingRow, WithValidation, SkipsEm
             'jenis_kelamin' => 'required|in:l,p,L,P',
         ];
     }
+
+    public function customValidationMessages(): array
+    {
+        return [
+            'nip.required' => 'Kolom NIP tidak boleh kosong.',
+            'nama.required' => 'Kolom Nama tidak boleh kosong.',
+            'jenis_kelamin.required' => 'Kolom Jenis Kelamin tidak boleh kosong.',
+            'jenis_kelamin.in' => 'Format Jenis Kelamin harus L atau P.',
+        ];
+    }
+
+    public function customValidationAttributes(): array
+    {
+        return [
+            'nip' => 'NIP',
+            'nama' => 'Nama',
+            'jenis_kelamin' => 'Jenis Kelamin',
+        ];
+    }
 }

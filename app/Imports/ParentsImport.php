@@ -10,9 +10,10 @@ use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Auth;
 use Maatwebsite\Excel\Concerns\ToCollection;
 use Maatwebsite\Excel\Concerns\WithHeadingRow;
+use Maatwebsite\Excel\Concerns\WithValidation;
 use Illuminate\Support\Facades\Log;
 
-class ParentsImport implements ToCollection, WithHeadingRow
+class ParentsImport implements ToCollection, WithHeadingRow, WithValidation
 {
     public function collection(Collection $rows)
     {
@@ -102,5 +103,29 @@ class ParentsImport implements ToCollection, WithHeadingRow
                 }
             }
         }
+    }
+
+    public function rules(): array
+    {
+        return [
+            'nama_lengkap' => 'required|string',
+            'username' => 'required|string',
+        ];
+    }
+
+    public function customValidationMessages(): array
+    {
+        return [
+            'nama_lengkap.required' => 'Kolom Nama Lengkap tidak boleh kosong.',
+            'username.required' => 'Kolom Username tidak boleh kosong.',
+        ];
+    }
+
+    public function customValidationAttributes(): array
+    {
+        return [
+            'nama_lengkap' => 'Nama Lengkap',
+            'username' => 'Username',
+        ];
     }
 }

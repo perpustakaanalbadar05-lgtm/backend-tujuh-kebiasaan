@@ -28,6 +28,8 @@ class ImportController extends Controller
         try {
             Excel::import(new StudentsImport($user->school_id), $request->file('file'));
             return $this->successResponse(null, 'Data siswa berhasil diimport');
+        } catch (\Maatwebsite\Excel\Validators\ValidationException $e) {
+            return $this->errorResponse($this->formatValidationErrors($e), 422);
         } catch (\Exception $e) {
             return $this->errorResponse('Gagal melakukan import: ' . $e->getMessage(), 500);
         }
@@ -47,6 +49,8 @@ class ImportController extends Controller
         try {
             Excel::import(new TeachersImport($user->school_id), $request->file('file'));
             return $this->successResponse(null, 'Data guru berhasil diimport');
+        } catch (\Maatwebsite\Excel\Validators\ValidationException $e) {
+            return $this->errorResponse($this->formatValidationErrors($e), 422);
         } catch (\Exception $e) {
             return $this->errorResponse('Gagal melakukan import: ' . $e->getMessage(), 500);
         }
@@ -62,10 +66,31 @@ class ImportController extends Controller
             Excel::import(new ParentsImport, $request->file('file'));
             return $this->successResponse(null, 'Data orang tua berhasil diimport', 200);
         } catch (\Maatwebsite\Excel\Validators\ValidationException $e) {
-            $failures = $e->failures();
-            return $this->errorResponse('Validasi gagal', 422, $failures);
+            return $this->errorResponse($this->formatValidationErrors($e), 422);
         } catch (\Exception $e) {
             return $this->errorResponse('Gagal import data: ' . $e->getMessage(), 500);
         }
+    }
+
+    private function formatValidationErrors(\Maatwebsite\Excel\Validators\ValidationException $e)
+    {
+        $failures = $e->failures();
+        $errorMessages = [];
+        $count = 0;
+        foreach ($failures as $failure) {
+            $row = $failure->row();
+            foreach ($failure->errors() as $err) {
+                $errorMessages[] = "Baris ke-{$row}: {$err}";
+                $count++;
+                if ($count >= 5) break 2;
+            }
+        }
+        
+        if (count($failures) > 5) {
+            $more = count($failures) - 5;
+            $errorMessages[] = "... dan {$more} baris error lainnya. Mohon perbaiki dan coba lagi.";
+        }
+        
+        return "Terdapat kesalahan pengisian Excel:\n" . implode("\n", $errorMessages);
     }
 }

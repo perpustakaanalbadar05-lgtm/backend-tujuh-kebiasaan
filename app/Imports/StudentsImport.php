@@ -57,4 +57,26 @@ class StudentsImport implements ToModel, WithHeadingRow, WithValidation, SkipsEm
             'class_id' => 'required|exists:classes,id',
         ];
     }
+
+    public function customValidationMessages(): array
+    {
+        return [
+            'nis.required' => 'Kolom NIS tidak boleh kosong.',
+            'nama.required' => 'Kolom Nama tidak boleh kosong.',
+            'jenis_kelamin.required' => 'Kolom Jenis Kelamin tidak boleh kosong.',
+            'jenis_kelamin.in' => 'Format Jenis Kelamin harus L atau P.',
+            'class_id.required' => 'Kolom ID Kelas tidak boleh kosong.',
+            'class_id.exists' => 'ID Kelas tidak terdaftar di sistem.',
+        ];
+    }
+
+    public function customValidationAttributes(): array
+    {
+        return [
+            'nis' => 'NIS',
+            'nama' => 'Nama',
+            'jenis_kelamin' => 'Jenis Kelamin',
+            'class_id' => 'ID Kelas',
+        ];
+    }
 }
