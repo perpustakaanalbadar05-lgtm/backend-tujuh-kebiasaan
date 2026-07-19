@@ -7,6 +7,8 @@ use App\Models\Badge;
 use App\Models\Student;
 use App\Models\StudentBadge;
 use App\Models\Journal;
+use App\Models\Teacher;
+use App\Models\StudentParent;
 use Illuminate\Http\Request;
 use App\Traits\ApiResponse;
 
@@ -27,7 +29,26 @@ class AchievementController extends Controller
             if (!$studentId) return $this->errorResponse('ID Siswa diperlukan', 400);
             $student = Student::find($studentId);
             if (!$student) return $this->errorResponse('Data siswa tidak ditemukan', 404);
-            // TODO: Add role checking for parents, teachers, etc.
+            
+            // Add role checking for parents, teachers, etc.
+            if ($user->role === 'orangtua') {
+                $parent = StudentParent::where('user_id', $user->id)->first();
+                if (!$parent || !$parent->students()->where('student_id', $studentId)->exists()) {
+                    return $this->errorResponse('Unauthorized access', 403);
+                }
+            } elseif ($user->role === 'guru') {
+                $teacher = Teacher::where('user_id', $user->id)->first();
+                if (!$teacher) {
+                    return $this->errorResponse('Unauthorized access', 403);
+                }
+                $isTeacherOfClass = \Illuminate\Support\Facades\DB::table('class_teacher')
+                    ->where('teacher_id', $teacher->id)
+                    ->where('class_id', $student->class_id)
+                    ->exists();
+                if (!$isTeacherOfClass) {
+                    return $this->errorResponse('Unauthorized access', 403);
+                }
+            }
         }
 
         // Get all badges available for this school (global + school specific)

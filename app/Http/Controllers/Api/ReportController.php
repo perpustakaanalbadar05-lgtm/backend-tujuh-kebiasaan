@@ -7,6 +7,7 @@ use Illuminate\Http\Request;
 use App\Models\Student;
 use App\Models\Journal;
 use App\Models\Habit;
+use App\Models\StudentParent;
 use App\Traits\ApiResponse;
 use Carbon\Carbon;
 
@@ -26,7 +27,17 @@ class ReportController extends Controller
             }
         }
         
-        // TODO: Proteksi Orang Tua (cek relasi di tabel pivot) bisa ditambahkan di sini
+        // Proteksi Orang Tua: Hanya bisa lihat laporannya anaknya sendiri
+        if ($user->role === 'orangtua') {
+            $parent = StudentParent::where('user_id', $user->id)->first();
+            if (!$parent) {
+                return $this->errorResponse('Data orang tua tidak ditemukan', 404);
+            }
+            $isParent = $parent->students()->where('student_id', $studentId)->exists();
+            if (!$isParent) {
+                return $this->errorResponse('Unauthorized access', 403);
+            }
+        }
 
         $student = Student::with('school')->findOrFail($studentId);
         
