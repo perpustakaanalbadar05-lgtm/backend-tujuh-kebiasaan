@@ -34,6 +34,7 @@ class TeachersImport implements ToModel, WithHeadingRow, WithValidation, SkipsEm
 
             // 2. Buat Teacher
             return new Teacher([
+                'school_id' => $this->schoolId,
                 'user_id' => $user->id,
                 'nip' => $row['nip'],
                 'name' => $row['nama'],

@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Evaluation;
 use App\Models\EvaluationAnswer;
 use Illuminate\Http\Request;
+use App\Http\Requests\Evaluation\SubmitEvaluationRequest;
 use App\Traits\ApiResponse;
 
 class EvaluationController extends Controller
@@ -40,15 +41,8 @@ class EvaluationController extends Controller
         ], 'Data evaluasi berhasil diambil');
     }
 
-    public function submit(Request $request, $id)
+    public function submit(SubmitEvaluationRequest $request, $id)
     {
-        $request->validate([
-            'answers' => 'required|array',
-            'answers.praktik_baik' => 'required|string',
-            'answers.kendala' => 'required|string',
-            'answers.solusi' => 'required|string',
-            'answers.analisis' => 'required|string',
-        ]);
 
         $evaluation = Evaluation::where('school_id', $request->user()->school_id)->findOrFail($id);
 

@@ -4,6 +4,8 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
+use App\Http\Requests\Auth\LoginRequest;
+use App\Http\Resources\UserResource;
 use Illuminate\Support\Facades\Auth;
 use App\Traits\ApiResponse;
 
@@ -14,12 +16,8 @@ class AuthController extends Controller
     /**
      * Login User and create token
      */
-    public function login(Request $request)
+    public function login(LoginRequest $request)
     {
-        $request->validate([
-            'username' => 'required|string',
-            'password' => 'required|string'
-        ]);
 
         $credentials = [
             'username' => $request->username,
@@ -56,7 +54,7 @@ class AuthController extends Controller
         return $this->successResponse([
             'access_token' => $token,
             'token_type' => 'Bearer',
-            'user' => $user
+            'user' => new UserResource($user)
         ], 'Login berhasil');
     }
 
@@ -67,7 +65,7 @@ class AuthController extends Controller
     {
         // Load relasi sekolah jika ada
         $user = $request->user()->load('school');
-        return $this->successResponse($user, 'Profil pengguna berhasil dimuat');
+        return $this->successResponse(new UserResource($user), 'Profil pengguna berhasil dimuat');
     }
 
     /**

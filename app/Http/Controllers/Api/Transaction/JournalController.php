@@ -100,14 +100,35 @@ class JournalController extends Controller
             }
         }
 
-        // Validasi Jam Operasional
+        // Validasi Jam Operasional Global (Dihapus/Dikomentari agar mendukung habit 24 jam)
+        /*
         $settings = Setting::where('school_id', $student->school_id)->pluck('value', 'key');
         $startTime = $settings['journal_start_time'] ?? '00:00';
         $endTime = $settings['journal_end_time'] ?? '23:59';
-        $now = now()->format('H:i');
-
+        
         if ($now < $startTime || $now > $endTime) {
             return $this->errorResponse("Sistem pengisian jurnal hanya dibuka dari jam {$startTime} sampai {$endTime}", 422);
+        }
+        */
+
+        // Validasi Waktu Spesifik Per Kebiasaan (Jika habit punya start_time & end_time)
+        $habitIds = collect($request->habits)->pluck('habit_id')->toArray();
+        $habitModels = \App\Models\Habit::whereIn('id', $habitIds)->get()->keyBy('id');
+        $now = now()->format('H:i');
+
+        foreach ($request->habits as $habitData) {
+            if (!empty($habitData['is_done'])) {
+                $habitModel = $habitModels[$habitData['habit_id']] ?? null;
+                if ($habitModel && $habitModel->start_time && $habitModel->end_time) {
+                    $timeToCheck = $habitData['time_performed'] ?? $now;
+                    $st = \Carbon\Carbon::parse($habitModel->start_time)->format('H:i');
+                    $et = \Carbon\Carbon::parse($habitModel->end_time)->format('H:i');
+                    
+                    if ($timeToCheck < $st || $timeToCheck > $et) {
+                        return $this->errorResponse("Kebiasaan '{$habitModel->name}' hanya dapat dicentang antara jam {$st} sampai {$et} (Waktu Anda: {$timeToCheck}).", 422);
+                    }
+                }
+            }
         }
 
         // Validasi Hari Libur

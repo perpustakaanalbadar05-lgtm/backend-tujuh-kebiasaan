@@ -128,6 +128,18 @@ Route::middleware('auth:sanctum')->group(function () {
     // Announcements
     Route::apiResource('announcements', \App\Http\Controllers\Api\AnnouncementController::class);
 
+    // Unused Models Endpoints
+    Route::middleware(['role:admin,superadmin'])->group(function() {
+        Route::get('/settings', [\App\Http\Controllers\Api\SettingController::class, 'index']);
+        Route::post('/settings', [\App\Http\Controllers\Api\SettingController::class, 'store']);
+        Route::apiResource('best-practices', \App\Http\Controllers\Api\BestPracticeController::class);
+        Route::apiResource('dashboard-widgets', \App\Http\Controllers\Api\DashboardWidgetController::class);
+        Route::apiResource('modules', \App\Http\Controllers\Api\ModuleController::class);
+        Route::apiResource('teacher-reviews', \App\Http\Controllers\Api\TeacherReviewController::class);
+        Route::apiResource('statistics', \App\Http\Controllers\Api\StatisticController::class);
+        Route::apiResource('recaps', \App\Http\Controllers\Api\RecapController::class);
+    });
+
     // Audit & Activity Logs
     Route::get('/activity-logs', [\App\Http\Controllers\Api\AuditLogController::class, 'activityLogs']);
     Route::get('/audit-logs', [\App\Http\Controllers\Api\AuditLogController::class, 'auditLogs']);
