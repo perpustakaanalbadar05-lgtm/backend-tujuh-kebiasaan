@@ -23,14 +23,32 @@ class ParentsImport implements ToCollection, WithHeadingRow, WithValidation
         foreach ($rows as $row) {
             // Kolom Excel: Nama Lengkap, Username, No. Telepon / WhatsApp, Email, NIS Anak (Pisahkan Koma), Relasi (Ayah/Ibu/Wali)
             $name = $row['nama_lengkap'] ?? null;
-            $username = $row['username'] ?? null;
             $phone = $row['no_telepon_whatsapp'] ?? null;
             $email = $row['email'] ?? null;
-            $nisAnak = $row['nis_anak_pisahkan_koma'] ?? null;
-            $relasi = $row['relasi_ayahibuwali'] ?? 'Wali';
+            $nisAnak = $row['nis_anak_pisahkan_koma'] ?? $row['nis_anak'] ?? $row['nis'] ?? null;
+            $relasi = $row['relasi_ayahibuwali'] ?? $row['relasi'] ?? 'Wali';
 
-            if (!$name || !$username) {
-                continue; // Skip if name or username is empty
+            if (!$name) {
+                continue; // Skip if name is empty
+            }
+
+            // Generate Username Otomatis
+            $username = $row['username'] ?? null;
+            if (!$username) {
+                if ($phone) {
+                    // Gunakan nomor telepon jika ada (buang spasi)
+                    $username = preg_replace('/\s+/', '', $phone);
+                } elseif ($nisAnak) {
+                    // Ambil NIS anak pertama
+                    $nisList = array_map('trim', explode(',', $nisAnak));
+                    if (!empty($nisList[0])) {
+                        $username = 'ortu_' . $nisList[0];
+                    } else {
+                        $username = 'ortu_' . rand(1000, 9999);
+                    }
+                } else {
+                    $username = 'ortu_' . rand(1000, 9999);
+                }
             }
 
             // 1. Cek User berdasarkan username atau phone
@@ -109,7 +127,6 @@ class ParentsImport implements ToCollection, WithHeadingRow, WithValidation
     {
         return [
             'nama_lengkap' => 'required|string',
-            'username' => 'required|string',
         ];
     }
 
@@ -117,7 +134,6 @@ class ParentsImport implements ToCollection, WithHeadingRow, WithValidation
     {
         return [
             'nama_lengkap.required' => 'Kolom Nama Lengkap tidak boleh kosong.',
-            'username.required' => 'Kolom Username tidak boleh kosong.',
         ];
     }
 

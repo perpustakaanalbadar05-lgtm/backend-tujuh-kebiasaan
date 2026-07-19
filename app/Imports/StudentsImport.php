@@ -26,17 +26,28 @@ class StudentsImport implements ToModel, WithHeadingRow, WithValidation, SkipsEm
             // 1. Buat User
             $user = User::create([
                 'name' => $row['nama'],
+                'username' => $row['nis'], // Set username dari NIS
                 'email' => $row['email'] ?? ($row['nis'] . '@siswa.sekolah.id'), // fallback email
                 'password' => Hash::make($row['nis']), // default password is NIS
                 'role' => 'siswa',
                 'school_id' => $this->schoolId,
             ]);
 
+            // Cari kelas berdasarkan nama (lebih fleksibel dengan LIKE)
+            $className = trim($row['nama_kelas'] ?? '');
+            $schoolClass = \App\Models\SchoolClass::where('school_id', $this->schoolId)
+                ->where('name', 'like', '%' . $className . '%')
+                ->first();
+
+            if (!$schoolClass) {
+                throw new \Exception("Baris dengan NIS {$row['nis']} gagal: Kelas '{$className}' tidak ditemukan di sistem sekolah ini. Pastikan nama kelas sudah dibuat di menu Kelas.");
+            }
+
             // 2. Buat Student
             return new Student([
                 'school_id' => $this->schoolId,
                 'user_id' => $user->id,
-                'class_id' => $row['class_id'],
+                'class_id' => $schoolClass->id,
                 'nis' => $row['nis'],
                 'nisn' => $row['nisn'] ?? null,
                 'name' => $row['nama'],
@@ -54,7 +65,7 @@ class StudentsImport implements ToModel, WithHeadingRow, WithValidation, SkipsEm
             'nis' => 'required',
             'nama' => 'required|string',
             'jenis_kelamin' => 'required|in:l,p,L,P',
-            'class_id' => 'required|exists:classes,id',
+            'nama_kelas' => 'required|string',
         ];
     }
 
@@ -65,8 +76,7 @@ class StudentsImport implements ToModel, WithHeadingRow, WithValidation, SkipsEm
             'nama.required' => 'Kolom Nama tidak boleh kosong.',
             'jenis_kelamin.required' => 'Kolom Jenis Kelamin tidak boleh kosong.',
             'jenis_kelamin.in' => 'Format Jenis Kelamin harus L atau P.',
-            'class_id.required' => 'Kolom ID Kelas tidak boleh kosong.',
-            'class_id.exists' => 'ID Kelas tidak terdaftar di sistem.',
+            'nama_kelas.required' => 'Kolom Nama Kelas tidak boleh kosong.',
         ];
     }
 
@@ -76,7 +86,7 @@ class StudentsImport implements ToModel, WithHeadingRow, WithValidation, SkipsEm
             'nis' => 'NIS',
             'nama' => 'Nama',
             'jenis_kelamin' => 'Jenis Kelamin',
-            'class_id' => 'ID Kelas',
+            'nama_kelas' => 'Nama Kelas',
         ];
     }
 }

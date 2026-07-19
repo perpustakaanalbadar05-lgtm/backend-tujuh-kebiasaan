@@ -26,6 +26,7 @@ class TeachersImport implements ToModel, WithHeadingRow, WithValidation, SkipsEm
             // 1. Buat User
             $user = User::create([
                 'name' => $row['nama'],
+                'username' => $row['nip'], // Set username dari NIP
                 'email' => $row['email'] ?? ($row['nip'] . '@guru.sekolah.id'), // fallback email
                 'password' => Hash::make($row['nip']), // default password is NIP
                 'role' => 'guru',

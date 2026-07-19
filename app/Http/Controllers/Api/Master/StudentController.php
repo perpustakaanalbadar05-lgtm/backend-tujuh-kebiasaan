@@ -51,8 +51,9 @@ class StudentController extends Controller
                   ->orWhere('nis', 'like', "%{$search}%");
             });
         }
-
-        $students = $query->paginate(15);
+        // Ambil semua data (tanpa paginasi) dan urutkan dari yang terbaru
+        // Ini diperlukan karena frontend menggunakan pencarian client-side
+        $students = $query->orderBy('created_at', 'desc')->get();
         return $this->successResponse($students, 'Data siswa berhasil diambil');
     }
 
@@ -61,7 +62,7 @@ class StudentController extends Controller
         $schoolId = $request->user()->school_id;
 
         $request->validate([
-            'nis' => 'required|string|unique:students,nis,NULL,id,school_id,' . $schoolId,
+            'nis' => 'required|string|unique:students,nis,NULL,id,school_id,' . $schoolId . '|unique:users,username',
             'name' => 'required|string',
             'class_id' => 'required|exists:classes,id',
             'gender' => 'required|in:L,P',
@@ -119,7 +120,7 @@ class StudentController extends Controller
         }
 
         $request->validate([
-            'nis' => 'required|string|unique:students,nis,' . $id . ',id,school_id,' . $schoolId,
+            'nis' => 'required|string|unique:students,nis,' . $id . ',id,school_id,' . $schoolId . '|unique:users,username,' . $student->user_id,
             'name' => 'required|string',
             'class_id' => 'required|exists:classes,id',
             'gender' => 'required|in:L,P',

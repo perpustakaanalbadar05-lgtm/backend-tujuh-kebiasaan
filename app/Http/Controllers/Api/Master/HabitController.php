@@ -33,7 +33,7 @@ class HabitController extends Controller
             'order_number' => 'required|integer',
             'active' => 'boolean',
             'start_time' => 'nullable|date_format:H:i',
-            'end_time' => 'nullable|date_format:H:i|after:start_time'
+            'end_time' => 'nullable|date_format:H:i'
         ]);
 
         $habit = Habit::create([
@@ -55,7 +55,7 @@ class HabitController extends Controller
             'order_number' => 'required|integer',
             'active' => 'boolean',
             'start_time' => 'nullable|date_format:H:i',
-            'end_time' => 'nullable|date_format:H:i|after:start_time'
+            'end_time' => 'nullable|date_format:H:i'
         ]);
 
         $habit = Habit::where('school_id', $request->user()->school_id)->findOrFail($id);
