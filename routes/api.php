@@ -86,6 +86,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::prefix('journals')->group(function() {
         Route::get('/', [\App\Http\Controllers\Api\Transaction\JournalController::class, 'index']);
         Route::post('/', [\App\Http\Controllers\Api\Transaction\JournalController::class, 'store']);
+        Route::get('/today', [\App\Http\Controllers\Api\Transaction\JournalController::class, 'today']);
         Route::get('/{id}', [\App\Http\Controllers\Api\Transaction\JournalController::class, 'show']);
         
         // Approvals

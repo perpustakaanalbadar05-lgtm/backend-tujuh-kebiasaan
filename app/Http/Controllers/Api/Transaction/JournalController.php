@@ -85,10 +85,19 @@ class JournalController extends Controller
 
         $date = Carbon::parse($request->date)->format('Y-m-d');
 
-        // Validasi: 1 Hari Maksimal 1 Jurnal per Siswa
-        $existingJournal = Journal::where('student_id', $student->id)->where('journal_date', $date)->first();
+        // Validasi: Cek status jurnal jika sudah ada
+        $existingJournal = Journal::with(['teacherApproval', 'parentApproval'])
+            ->where('student_id', $student->id)
+            ->where('journal_date', $date)
+            ->first();
+
         if ($existingJournal) {
-            return $this->errorResponse("Anda sudah mengisi jurnal untuk tanggal {$date}", 422);
+            $isTeacherProcessed = $existingJournal->teacherApproval && in_array($existingJournal->teacherApproval->status, ['approved', 'rejected']);
+            $isParentProcessed = $existingJournal->parentApproval && in_array($existingJournal->parentApproval->status, ['approved', 'rejected']);
+            
+            if ($isTeacherProcessed || $isParentProcessed) {
+                return $this->errorResponse("Jurnal untuk tanggal {$date} sudah divalidasi dan dikunci. Anda tidak dapat mengubahnya lagi.", 422);
+            }
         }
 
         // Validasi Jam Operasional
@@ -125,45 +134,67 @@ class JournalController extends Controller
             $doneHabits = collect($request->habits)->where('is_done', true)->count();
             $score = $totalHabits > 0 ? round(($doneHabits / $totalHabits) * 100) : 0;
 
-            $journal = Journal::create([
-                'school_id' => $student->school_id,
-                'student_id' => $student->id,
-                'academic_year_id' => $activeSemester->academic_year_id,
-                'semester_id' => $activeSemester->id,
-                'journal_date' => $date,
-                'score' => $score,
-                'status' => 'submitted',
-                'created_by' => $user->id,
-            ]);
+            if ($existingJournal) {
+                $existingJournal->update([
+                    'score' => $score,
+                    'status' => 'submitted'
+                ]);
+                $journal = $existingJournal;
+                
+                foreach ($request->habits as $habit) {
+                    JournalDetail::updateOrCreate(
+                        ['journal_id' => $journal->id, 'habit_id' => $habit['habit_id']],
+                        [
+                            'is_done' => $habit['is_done'],
+                            'time_performed' => $habit['time_performed'] ?? null,
+                            'note' => $habit['note'] ?? null,
+                        ]
+                    );
+                }
+            } else {
+                $journal = Journal::create([
+                    'school_id' => $student->school_id,
+                    'student_id' => $student->id,
+                    'academic_year_id' => $activeSemester->academic_year_id,
+                    'semester_id' => $activeSemester->id,
+                    'journal_date' => $date,
+                    'score' => $score,
+                    'status' => 'submitted',
+                    'created_by' => $user->id,
+                ]);
 
-            $details = [];
-            foreach ($request->habits as $habit) {
-                $details[] = [
-                    'journal_id' => $journal->id,
-                    'habit_id' => $habit['habit_id'],
-                    'is_done' => $habit['is_done'],
-                    'time_performed' => $habit['time_performed'] ?? null,
-                    'note' => $habit['note'] ?? null,
-                    'created_at' => now(),
-                    'updated_at' => now(),
-                ];
+                $details = [];
+                foreach ($request->habits as $habit) {
+                    $details[] = [
+                        'journal_id' => $journal->id,
+                        'habit_id' => $habit['habit_id'],
+                        'is_done' => $habit['is_done'],
+                        'time_performed' => $habit['time_performed'] ?? null,
+                        'note' => $habit['note'] ?? null,
+                        'created_at' => now(),
+                        'updated_at' => now(),
+                    ];
+                }
+                JournalDetail::insert($details);
+
+                // Create notification for class teacher ONLY on first creation
+                if ($student && $student->schoolClass && $student->schoolClass->teacher_id) {
+                    $teacher = \App\Models\Teacher::find($student->schoolClass->teacher_id);
+                    if ($teacher && $teacher->user_id) {
+                        \App\Models\Notification::create([
+                            'user_id' => $teacher->user_id,
+                            'title' => 'Jurnal Baru: ' . $student->name,
+                            'message' => 'Siswa ' . $student->name . ' telah mulai mengisi jurnal untuk tanggal ' . $date . '.',
+                            'url' => '/dashboard/approvals',
+                        ]);
+                    }
+                }
             }
-            JournalDetail::insert($details);
 
             DB::commit();
 
-            // Create notification for class teacher
-            if ($student && $student->schoolClass && $student->schoolClass->teacher_id) {
-                $teacher = \App\Models\Teacher::find($student->schoolClass->teacher_id);
-                if ($teacher && $teacher->user_id) {
-                    \App\Models\Notification::create([
-                        'user_id' => $teacher->user_id,
-                        'title' => 'Jurnal Baru: ' . $student->name,
-                        'message' => 'Siswa ' . $student->name . ' telah mengirimkan jurnal untuk tanggal ' . $date . '. Mohon segera divalidasi.',
-                        'url' => '/dashboard/approvals',
-                    ]);
-                }
-            }
+            // Auto-evaluate badges for streak
+            \App\Http\Controllers\Api\Transaction\AchievementController::checkAutoBadges($student->id);
 
             return $this->successResponse($journal->load('details'), 'Jurnal berhasil disubmit', 201);
         } catch (\Exception $e) {
@@ -181,5 +212,36 @@ class JournalController extends Controller
         }
 
         return $this->successResponse($journal, 'Detail jurnal berhasil diambil');
+    }
+
+    public function today(Request $request)
+    {
+        $user = $request->user();
+        if ($user->role !== 'siswa') {
+            return $this->errorResponse('Hanya siswa yang dapat mengakses', 403);
+        }
+
+        $student = Student::where('user_id', $user->id)->first();
+        if (!$student) return $this->errorResponse('Data siswa tidak ditemukan', 404);
+
+        $date = now()->format('Y-m-d');
+        
+        $journal = Journal::with(['details.habit', 'teacherApproval', 'parentApproval'])
+            ->where('student_id', $student->id)
+            ->where('journal_date', $date)
+            ->first();
+
+        // Check if journal exists and is locked
+        $isLocked = false;
+        if ($journal) {
+            $isTeacherProcessed = $journal->teacherApproval && in_array($journal->teacherApproval->status, ['approved', 'rejected']);
+            $isParentProcessed = $journal->parentApproval && in_array($journal->parentApproval->status, ['approved', 'rejected']);
+            $isLocked = $isTeacherProcessed || $isParentProcessed;
+        }
+
+        return $this->successResponse([
+            'journal' => $journal,
+            'is_locked' => $isLocked
+        ], 'Jurnal hari ini');
     }
 }

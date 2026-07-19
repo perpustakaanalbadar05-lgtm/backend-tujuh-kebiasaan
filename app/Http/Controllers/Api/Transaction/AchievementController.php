@@ -70,10 +70,63 @@ class AchievementController extends Controller
         return $this->successResponse($studentBadge, 'Badge berhasil diberikan');
     }
 
-    // Optional: Auto-evaluate badges based on journals (can be called via Job/Cron or after journal submit)
-    public function checkAutoBadges($studentId)
+    // Auto-evaluate badges based on journals
+    public static function checkAutoBadges($studentId)
     {
-        // Implementation for condition_type like 'consistent_days', 'perfect_score'
-        // For example, finding if a student has submitted journals 7 days in a row
+        $student = Student::find($studentId);
+        if (!$student) return;
+
+        // Get available auto badges
+        $availableBadges = Badge::where(function($q) use ($student) {
+            $q->whereNull('school_id')->orWhere('school_id', $student->school_id);
+        })->where('is_active', true)
+          ->where('condition_type', 'consistent_days')
+          ->get();
+
+        if ($availableBadges->isEmpty()) return;
+
+        // Fetch student's recent journals ordered by date descending
+        $journals = Journal::where('student_id', $studentId)
+            ->orderBy('journal_date', 'desc')
+            ->get();
+
+        if ($journals->isEmpty()) return;
+
+        // Calculate current streak
+        $streak = 0;
+        $currentDate = \Carbon\Carbon::now()->format('Y-m-d');
+        $checkDate = \Carbon\Carbon::parse($journals->first()->journal_date);
+        
+        // If the most recent journal is not today or yesterday, streak is broken
+        if ($checkDate->diffInDays(\Carbon\Carbon::now()) > 1) {
+             // Streak is effectively 0 for today
+        } else {
+             $streak = 1;
+             for ($i = 1; $i < count($journals); $i++) {
+                 $prevDate = \Carbon\Carbon::parse($journals[$i]->journal_date);
+                 if ($checkDate->diffInDays($prevDate) == 1) {
+                     $streak++;
+                     $checkDate = $prevDate;
+                 } else {
+                     break;
+                 }
+             }
+        }
+
+        // Award badges based on streak
+        foreach ($availableBadges as $badge) {
+            if ($streak >= $badge->condition_value) {
+                // Check if they already have it
+                $hasBadge = StudentBadge::where('student_id', $studentId)->where('badge_id', $badge->id)->exists();
+                if (!$hasBadge) {
+                    StudentBadge::create([
+                        'student_id' => $studentId,
+                        'badge_id' => $badge->id,
+                        'awarded_at' => now(),
+                        'awarded_by' => null // Auto system
+                    ]);
+                }
+            }
+        }
     }
 }
