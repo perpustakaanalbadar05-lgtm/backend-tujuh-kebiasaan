@@ -14,31 +14,26 @@ class AcademicYearController extends Controller
     public function index(Request $request)
     {
         $schoolId = $request->user()->school_id;
-        $years = AcademicYear::where('school_id', $schoolId)->orderBy('start_date', 'desc')->get();
+        $years = AcademicYear::where('school_id', $schoolId)->orderBy('year', 'desc')->get();
         return $this->successResponse($years, 'Daftar Tahun Ajaran');
     }
 
     public function store(Request $request)
     {
         $request->validate([
-            'name' => 'required|string|max:255',
-            'start_date' => 'required|date',
-            'end_date' => 'required|date|after:start_date',
+            'year' => 'required|string|max:255',
             'active' => 'boolean'
         ]);
 
         $schoolId = $request->user()->school_id;
 
-        // Jika diset active, nonaktifkan yang lain
         if ($request->input('active', false)) {
             AcademicYear::where('school_id', $schoolId)->update(['active' => false]);
         }
 
         $year = AcademicYear::create([
             'school_id' => $schoolId,
-            'name' => $request->name,
-            'start_date' => $request->start_date,
-            'end_date' => $request->end_date,
+            'year' => $request->year,
             'active' => $request->input('active', false),
         ]);
 
@@ -48,9 +43,7 @@ class AcademicYearController extends Controller
     public function update(Request $request, $id)
     {
         $request->validate([
-            'name' => 'required|string|max:255',
-            'start_date' => 'required|date',
-            'end_date' => 'required|date|after:start_date',
+            'year' => 'required|string|max:255',
             'active' => 'boolean'
         ]);
 
@@ -61,7 +54,7 @@ class AcademicYearController extends Controller
             AcademicYear::where('school_id', $schoolId)->where('id', '!=', $id)->update(['active' => false]);
         }
 
-        $year->update($request->only(['name', 'start_date', 'end_date', 'active']));
+        $year->update($request->only(['year', 'active']));
 
         return $this->successResponse($year, 'Tahun Ajaran berhasil diperbarui');
     }
