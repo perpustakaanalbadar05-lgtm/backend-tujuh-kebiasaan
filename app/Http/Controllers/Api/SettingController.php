@@ -30,7 +30,7 @@ class SettingController extends Controller
         foreach ($request->settings as $settingData) {
             Setting::updateOrCreate(
                 ['school_id' => $schoolId, 'key' => $settingData['key']],
-                ['value' => json_encode($settingData['value'])]
+                ['value' => $settingData['value']]
             );
         }
 

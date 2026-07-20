@@ -32,7 +32,7 @@ class TeacherController extends Controller
             });
         }
 
-        $teachers = $query->orderBy('name')->paginate(15);
+        $teachers = $query->orderBy('name')->paginate($request->query('per_page', 15));
         return $this->successResponse($teachers, 'Data guru berhasil diambil');
     }
 

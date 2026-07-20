@@ -133,8 +133,7 @@ class JournalController extends Controller
 
         // Validasi Hari Libur
         $isHoliday = Holiday::where('school_id', $student->school_id)
-            ->where('start_date', '<=', $date)
-            ->where('end_date', '>=', $date)
+            ->where('date', $date)
             ->exists();
             
         if ($isHoliday) {

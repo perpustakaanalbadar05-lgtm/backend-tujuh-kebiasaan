@@ -32,7 +32,7 @@ class ParentController extends Controller
             });
         }
 
-        $parents = $query->orderBy('name')->paginate(15);
+        $parents = $query->orderBy('name')->paginate($request->query('per_page', 15));
         return $this->successResponse($parents, 'Data orang tua berhasil diambil');
     }
 

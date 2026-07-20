@@ -26,13 +26,16 @@ class ApprovalController extends Controller
         if (!$journal) return $this->errorResponse('Jurnal tidak ditemukan', 404);
 
         $request->validate([
-            'status' => 'required|in:approved,rejected'
+            'status' => 'required|in:approved,rejected',
+            'note' => 'nullable|string',
+            'overrides' => 'nullable|array',
+            'overrides.*.id' => 'required|exists:journal_details,id',
+            'overrides.*.is_done' => 'required|boolean',
         ]);
 
         $teacher = Teacher::where('user_id', $user->id)->first();
         
         // If it's an admin validating, teacher will be null, and teacher_id will be null.
-        // We can track who approved it in the future using approved_by, but for now teacher_id nullable is enough.
         $approval = TeacherApproval::updateOrCreate(
             ['journal_id' => $journal->id],
             [
@@ -41,6 +44,26 @@ class ApprovalController extends Controller
                 'approved_at' => now(),
             ]
         );
+
+        if ($request->status === 'approved' && $request->has('overrides')) {
+            $totalPoints = 0;
+            $maxPoints = \App\Models\Habit::where('school_id', $journal->school_id)->count() * 100;
+            if ($maxPoints == 0) $maxPoints = 700; // Default fallback
+
+            foreach ($request->overrides as $override) {
+                $detail = \App\Models\JournalDetail::find($override['id']);
+                if ($detail) {
+                    $detail->update(['is_done' => $override['is_done']]);
+                    if ($override['is_done']) {
+                        $totalPoints += 100;
+                    }
+                }
+            }
+            
+            // Recalculate score
+            $score = round(($totalPoints / $maxPoints) * 100);
+            $journal->update(['score' => $score]);
+        }
 
         if ($journal->student && $journal->student->user_id) {
             \App\Models\Notification::create([
