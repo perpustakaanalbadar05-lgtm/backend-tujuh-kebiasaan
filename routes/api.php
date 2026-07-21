@@ -88,7 +88,7 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::post('/', [\App\Http\Controllers\Api\Transaction\JournalController::class, 'store']);
         Route::get('/today', [\App\Http\Controllers\Api\Transaction\JournalController::class, 'today']);
         Route::get('/{id}', [\App\Http\Controllers\Api\Transaction\JournalController::class, 'show']);
-        
+        Route::delete('/{id}', [\App\Http\Controllers\Api\Transaction\JournalController::class, 'destroy']);        
         // Approvals
         Route::post('/{id}/approve-teacher', [\App\Http\Controllers\Api\Transaction\ApprovalController::class, 'approveByTeacher']);
         Route::post('/{id}/approve-parent', [\App\Http\Controllers\Api\Transaction\ApprovalController::class, 'approveByParent']);

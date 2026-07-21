@@ -59,8 +59,19 @@ class JournalController extends Controller
                 $q->where('school_id', $user->school_id);
             });
         }
+        if ($request->has('date') && !empty($request->date)) {
+            $query->where('journal_date', $request->date);
+        }
 
-        $journals = $query->orderBy('journal_date', 'desc')->paginate(15);
+        if ($request->has('search') && !empty($request->search)) {
+            $search = $request->search;
+            $query->whereHas('student', function($q) use ($search) {
+                $q->where('name', 'like', "%{$search}%")
+                  ->orWhere('nis', 'like', "%{$search}%");
+            });
+        }
+
+        $journals = $query->orderBy('journal_date', 'desc')->paginate($request->limit ?? 50);
         return $this->successResponse($journals, 'Data jurnal berhasil diambil');
     }
 
@@ -96,7 +107,14 @@ class JournalController extends Controller
             $isParentProcessed = $existingJournal->parentApproval && in_array($existingJournal->parentApproval->status, ['approved', 'rejected']);
             
             if ($isTeacherProcessed || $isParentProcessed) {
-                return $this->errorResponse("Jurnal untuk tanggal {$date} sudah divalidasi dan dikunci. Anda tidak dapat mengubahnya lagi.", 422);
+                // Hapus persetujuan sebelumnya karena ada tambahan/perubahan data baru oleh siswa,
+                // sehingga guru/orang tua perlu melakukan validasi ulang.
+                if ($existingJournal->teacherApproval) {
+                    $existingJournal->teacherApproval()->delete();
+                }
+                if ($existingJournal->parentApproval) {
+                    $existingJournal->parentApproval()->delete();
+                }
             }
         }
 
@@ -263,5 +281,23 @@ class JournalController extends Controller
             'journal' => $journal,
             'is_locked' => $isLocked
         ], 'Jurnal hari ini');
+    }
+
+    public function destroy(Request $request, $id)
+    {
+        $user = $request->user();
+        if ($user->role !== 'admin' && $user->role !== 'superadmin' && $user->role !== 'guru') {
+            return $this->errorResponse('Anda tidak memiliki akses untuk menghapus jurnal', 403);
+        }
+
+        $journal = Journal::find($id);
+        
+        if (!$journal) {
+            return $this->errorResponse('Data jurnal tidak ditemukan', 404);
+        }
+
+        $journal->delete();
+
+        return $this->successResponse(null, 'Jurnal berhasil dihapus');
     }
 }
