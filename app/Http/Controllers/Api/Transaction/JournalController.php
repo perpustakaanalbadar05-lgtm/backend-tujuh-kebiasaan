@@ -262,8 +262,8 @@ class JournalController extends Controller
         $student = Student::where('user_id', $user->id)->first();
         if (!$student) return $this->errorResponse('Data siswa tidak ditemukan', 404);
 
-        $date = now()->format('Y-m-d');
-        
+        // Prioritaskan tanggal dari client (lokal user), fallback ke tanggal UTC server
+        $date = $request->date ?? now()->format('Y-m-d');        
         $journal = Journal::with(['details.habit', 'teacherApproval', 'parentApproval'])
             ->where('student_id', $student->id)
             ->where('journal_date', $date)

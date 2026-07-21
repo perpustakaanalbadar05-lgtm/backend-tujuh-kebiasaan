@@ -41,6 +41,7 @@ class ApprovalController extends Controller
             [
                 'teacher_id' => $teacher ? $teacher->id : null,
                 'status' => $request->status,
+                'note' => $request->note,
                 'approved_at' => now(),
             ]
         );
