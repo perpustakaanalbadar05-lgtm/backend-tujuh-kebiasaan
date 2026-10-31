@@ -25,6 +25,10 @@ class ApprovalController extends Controller
         $journal = Journal::find($journalId);
         if (!$journal) return $this->errorResponse('Jurnal tidak ditemukan', 404);
 
+        if ($user->role !== 'superadmin' && $journal->school_id !== $user->school_id) {
+            return $this->errorResponse('Anda tidak memiliki akses ke jurnal sekolah ini', 403);
+        }
+
         $request->validate([
             'status' => 'required|in:approved,rejected',
             'note' => 'nullable|string',
@@ -45,6 +49,8 @@ class ApprovalController extends Controller
                 'approved_at' => now(),
             ]
         );
+
+        $journal->update(['status' => $request->status === 'approved' ? 'approved' : 'rejected']);
 
         if ($request->status === 'approved' && $request->has('overrides')) {
             $totalPoints = 0;
@@ -70,7 +76,7 @@ class ApprovalController extends Controller
             \App\Models\Notification::create([
                 'user_id' => $journal->student->user_id,
                 'title' => 'Jurnal Divalidasi Guru',
-                'message' => 'Jurnal Anda tanggal ' . $journal->date . ' telah di' . ($request->status == 'approved' ? 'setujui' : 'tolak') . ' oleh Guru.',
+                'message' => 'Jurnal Anda tanggal ' . $journal->journal_date . ' telah di' . ($request->status == 'approved' ? 'setujui' : 'tolak') . ' oleh Guru.',
                 'url' => '/dashboard/journal',
             ]);
         }
@@ -88,6 +94,17 @@ class ApprovalController extends Controller
         $journal = Journal::find($journalId);
         if (!$journal) return $this->errorResponse('Jurnal tidak ditemukan', 404);
 
+        $parent = StudentParent::where('user_id', $user->id)->first();
+        if (!$parent) {
+            return $this->errorResponse('Data profil orang tua tidak ditemukan', 404);
+        }
+
+        // Verify that student is this parent's child
+        $isChild = $parent->students()->where('students.id', $journal->student_id)->exists();
+        if (!$isChild) {
+            return $this->errorResponse('Anda tidak memiliki izin memvalidasi jurnal siswa ini', 403);
+        }
+
         $request->validate([
             'status' => 'required|in:approved,rejected',
             'note' => 'nullable|string',
@@ -95,18 +112,20 @@ class ApprovalController extends Controller
             'overrides.*.id' => 'required|exists:journal_details,id',
             'overrides.*.is_done' => 'required|boolean',
         ]);
-
-        $parent = StudentParent::where('user_id', $user->id)->first();
         
         $approval = ParentApproval::updateOrCreate(
             ['journal_id' => $journal->id],
             [
-                'parent_id' => $parent ? $parent->id : null,
+                'parent_id' => $parent->id,
                 'status' => $request->status,
                 'note' => $request->note,
                 'approved_at' => now(),
             ]
         );
+
+        if ($request->status === 'rejected') {
+            $journal->update(['status' => 'rejected']);
+        }
 
         if ($request->status === 'approved' && $request->has('overrides')) {
             foreach ($request->overrides as $override) {
@@ -126,7 +145,7 @@ class ApprovalController extends Controller
             \App\Models\Notification::create([
                 'user_id' => $journal->student->user_id,
                 'title' => 'Jurnal Divalidasi Orangtua',
-                'message' => 'Jurnal Anda tanggal ' . $journal->date . ' telah di' . ($request->status == 'approved' ? 'setujui' : 'tolak') . ' oleh Orangtua.',
+                'message' => 'Jurnal Anda tanggal ' . $journal->journal_date . ' telah di' . ($request->status == 'approved' ? 'setujui' : 'tolak') . ' oleh Orangtua.',
                 'url' => '/dashboard/journal',
             ]);
         }

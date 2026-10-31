@@ -24,6 +24,8 @@ class AuditLogController extends Controller
 
         if ($user->role === 'admin') {
             $query->where('activity_logs.school_id', $user->school_id);
+        } elseif ($user->role === 'superadmin' && $request->has('school_id')) {
+            $query->where('activity_logs.school_id', $request->school_id);
         }
 
         $logs = $query->orderBy('activity_logs.created_at', 'desc')->paginate(20);
@@ -41,6 +43,12 @@ class AuditLogController extends Controller
         $query = DB::table('audit_logs')
             ->leftJoin('users', 'audit_logs.user_id', '=', 'users.id')
             ->select('audit_logs.*', 'users.name as user_name', 'users.role as user_role');
+
+        if ($user->role === 'admin') {
+            $query->where('users.school_id', $user->school_id);
+        } elseif ($user->role === 'superadmin' && $request->has('school_id')) {
+            $query->where('users.school_id', $request->school_id);
+        }
 
         $logs = $query->orderBy('audit_logs.created_at', 'desc')->paginate(20);
 

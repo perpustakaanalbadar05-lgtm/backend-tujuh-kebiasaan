@@ -54,10 +54,16 @@ class JournalController extends Controller
                 $query->where('id', 0);
             }
         } elseif ($user->role === 'admin' || $user->role === 'superadmin') {
-            // Admin melihat semua jurnal di sekolahnya
-            $query->whereHas('student', function($q) use ($user) {
-                $q->where('school_id', $user->school_id);
-            });
+            // Admin melihat semua jurnal di sekolahnya, superadmin melihat semua atau filter school_id
+            if ($user->role === 'admin') {
+                $query->whereHas('student', function($q) use ($user) {
+                    $q->where('school_id', $user->school_id);
+                });
+            } elseif ($user->role === 'superadmin' && $request->has('school_id')) {
+                $query->whereHas('student', function($q) use ($request) {
+                    $q->where('school_id', $request->school_id);
+                });
+            }
         }
         if ($request->has('date') && !empty($request->date)) {
             $query->where('journal_date', $request->date);
@@ -129,8 +135,16 @@ class JournalController extends Controller
         }
         */
 
-        // Validasi Waktu Spesifik Per Kebiasaan (Jika habit punya start_time & end_time)
+        // Validasi Kebiasaan milik sekolah siswa
         $habitIds = collect($request->habits)->pluck('habit_id')->toArray();
+        $schoolHabitsCount = \App\Models\Habit::where('school_id', $student->school_id)
+            ->whereIn('id', $habitIds)
+            ->count();
+        if ($schoolHabitsCount !== count(array_unique($habitIds))) {
+            return $this->errorResponse('Beberapa kebiasaan yang dipilih tidak valid atau bukan milik sekolah Anda', 422);
+        }
+
+        // Validasi Waktu Spesifik Per Kebiasaan (Jika habit punya start_time & end_time)
         $habitModels = \App\Models\Habit::whereIn('id', $habitIds)->get()->keyBy('id');
         $now = now()->format('H:i');
 
@@ -249,6 +263,25 @@ class JournalController extends Controller
             return $this->errorResponse('Data jurnal tidak ditemukan', 404);
         }
 
+        $user = $request->user();
+        if ($user->role === 'siswa') {
+            $student = Student::where('user_id', $user->id)->first();
+            if (!$student || $journal->student_id !== $student->id) {
+                return $this->errorResponse('Anda tidak memiliki izin mengakses jurnal ini', 403);
+            }
+        } elseif ($user->role === 'orangtua') {
+            $parent = StudentParent::where('user_id', $user->id)->first();
+            if (!$parent) return $this->errorResponse('Data orang tua tidak ditemukan', 404);
+            $isChild = DB::table('student_parents')->where('parent_id', $parent->id)->where('student_id', $journal->student_id)->exists();
+            if (!$isChild) {
+                return $this->errorResponse('Anda tidak memiliki izin mengakses jurnal ini', 403);
+            }
+        } elseif ($user->role === 'guru' || $user->role === 'admin') {
+            if ($journal->school_id !== $user->school_id) {
+                return $this->errorResponse('Anda tidak memiliki izin mengakses jurnal sekolah lain', 403);
+            }
+        }
+
         return $this->successResponse($journal, 'Detail jurnal berhasil diambil');
     }
 
@@ -294,6 +327,10 @@ class JournalController extends Controller
         
         if (!$journal) {
             return $this->errorResponse('Data jurnal tidak ditemukan', 404);
+        }
+
+        if ($user->role !== 'superadmin' && $journal->school_id !== $user->school_id) {
+            return $this->errorResponse('Anda tidak memiliki akses untuk menghapus jurnal sekolah lain', 403);
         }
 
         $journal->delete();

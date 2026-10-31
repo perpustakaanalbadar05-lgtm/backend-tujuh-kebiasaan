@@ -6,15 +6,14 @@ Route::get('/', function () {
     return view('welcome');
 });
 
+// Secure file storage serving
 Route::get('/file-storage/{path}', function ($path) {
-    $filePath = storage_path('app/public/' . $path);
-    if (file_exists($filePath)) {
-        return response()->file($filePath);
+    $basePath = realpath(storage_path('app/public'));
+    $fullPath = realpath(storage_path('app/public/' . $path));
+
+    // Cegah path traversal: pastikan file berada di dalam folder storage/app/public
+    if ($basePath && $fullPath && str_starts_with($fullPath, $basePath) && file_exists($fullPath)) {
+        return response()->file($fullPath);
     }
     abort(404);
 })->where('path', '.*');
-
-Route::get('/dev/reset-database-sekarang', function () {
-    \Illuminate\Support\Facades\Artisan::call('migrate:fresh', ['--seed' => true, '--force' => true]);
-    return 'Database berhasil direset ke pengaturan awal beserta data dummy!';
-});

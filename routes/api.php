@@ -62,6 +62,7 @@ Route::middleware('auth:sanctum')->group(function () {
         
         Route::get('parents/template', [\App\Http\Controllers\Api\Master\ParentController::class, 'exportTemplate']);
         Route::get('parents/export', [\App\Http\Controllers\Api\Master\ParentController::class, 'export']);
+        Route::patch('parents/{id}/reset-password', [\App\Http\Controllers\Api\Master\ParentController::class, 'resetPassword']);
         Route::apiResource('parents', \App\Http\Controllers\Api\Master\ParentController::class);
         
         Route::apiResource('predicates', \App\Http\Controllers\Api\Master\PredicateController::class);
@@ -129,16 +130,10 @@ Route::middleware('auth:sanctum')->group(function () {
     // Announcements
     Route::apiResource('announcements', \App\Http\Controllers\Api\AnnouncementController::class);
 
-    // Unused Models Endpoints
+    // Settings
     Route::middleware(['role:admin,superadmin'])->group(function() {
         Route::get('/settings', [\App\Http\Controllers\Api\SettingController::class, 'index']);
         Route::post('/settings', [\App\Http\Controllers\Api\SettingController::class, 'store']);
-        Route::apiResource('best-practices', \App\Http\Controllers\Api\BestPracticeController::class);
-        Route::apiResource('dashboard-widgets', \App\Http\Controllers\Api\DashboardWidgetController::class);
-        Route::apiResource('modules', \App\Http\Controllers\Api\ModuleController::class);
-        Route::apiResource('teacher-reviews', \App\Http\Controllers\Api\TeacherReviewController::class);
-        Route::apiResource('statistics', \App\Http\Controllers\Api\StatisticController::class);
-        Route::apiResource('recaps', \App\Http\Controllers\Api\RecapController::class);
     });
 
     // Audit & Activity Logs

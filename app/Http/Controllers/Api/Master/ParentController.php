@@ -136,6 +136,32 @@ class ParentController extends Controller
         return $this->successResponse(null, 'Data orang tua berhasil dihapus');
     }
 
+    public function resetPassword(Request $request, $id)
+    {
+        $user = $request->user();
+        $query = StudentParent::query();
+        if ($user->role !== 'superadmin') {
+            $query->where('school_id', $user->school_id);
+        }
+        $parent = $query->find($id);
+
+        if (!$parent) {
+            return $this->errorResponse('Data orang tua tidak ditemukan', 404);
+        }
+
+        if ($parent->user_id) {
+            $targetUser = User::find($parent->user_id);
+            if ($targetUser) {
+                $newPassword = $parent->phone ?? 'password';
+                $targetUser->password = Hash::make($newPassword);
+                $targetUser->save();
+                return $this->successResponse(null, 'Password orang tua berhasil direset menjadi: ' . $newPassword);
+            }
+        }
+
+        return $this->errorResponse('Akun pengguna orang tua tidak ditemukan', 404);
+    }
+
     public function exportTemplate()
     {
         return Excel::download(new ParentTemplateExport, 'template_orangtua.xlsx');

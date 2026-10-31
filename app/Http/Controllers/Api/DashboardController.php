@@ -113,20 +113,27 @@ class DashboardController extends Controller
 
         if ($user->role === 'siswa' || $user->role === 'orangtua') {
             $studentId = null;
+            $student = null;
+            $parent = null;
             if ($user->role === 'siswa') {
                 $student = Student::where('user_id', $user->id)->first();
                 $studentId = $student ? $student->id : null;
             } else {
                 $parent = StudentParent::where('user_id', $user->id)->first();
                 if ($parent) {
-                    $student = $parent->students()->first();
+                    if ($request->has('student_id')) {
+                        $student = $parent->students()->where('students.id', $request->student_id)->first();
+                    }
+                    if (!$student) {
+                        $student = $parent->students()->first();
+                    }
                     $studentId = $student ? $student->id : null;
                 }
             }
 
-            if ($studentId) {
-                // Personal Stats
-                $totalScore = Journal::where('student_id', $studentId)->whereNotNull('score')->sum('score');
+            if ($studentId && $student) {
+                // Personal Stats - Predikat dihitung dari rata-rata nilai siswa
+                $avgScore = round(Journal::where('student_id', $studentId)->whereNotNull('score')->avg('score') ?? 0);
                 
                 $journalsThisMonth = Journal::where('student_id', $studentId)
                     ->whereMonth('journal_date', Carbon::now()->month)
@@ -138,8 +145,8 @@ class DashboardController extends Controller
                     ->exists();
 
                 $predicate = Predicate::where('school_id', $schoolId)
-                    ->where('min_score', '<=', $totalScore)
-                    ->where('max_score', '>=', $totalScore)
+                    ->where('min_score', '<=', $avgScore)
+                    ->where('max_score', '>=', $avgScore)
                     ->first();
                 $currentPredicate = $predicate ? $predicate->name : 'Belum Ada Predikat';
 
@@ -173,16 +180,24 @@ class DashboardController extends Controller
                     ];
                 }
 
-                return $this->successResponse([
+                $responseData = [
                     'type' => 'student',
+                    'student_id' => $student->id,
                     'student_name' => $student->name,
-                    'total_score' => $totalScore,
+                    'total_score' => $avgScore,
+                    'average_score' => $avgScore,
                     'journals_this_month' => $journalsThisMonth,
                     'current_predicate' => $currentPredicate,
                     'filled_today' => $filledToday,
                     'recent_badges' => $recentBadges,
                     'chart_data' => $studentChartData
-                ], 'Statistik personal berhasil diambil');
+                ];
+
+                if ($user->role === 'orangtua' && $parent) {
+                    $responseData['children'] = $parent->students()->select('students.id', 'students.name', 'students.nis')->get();
+                }
+
+                return $this->successResponse($responseData, 'Statistik personal berhasil diambil');
             }
         }
 

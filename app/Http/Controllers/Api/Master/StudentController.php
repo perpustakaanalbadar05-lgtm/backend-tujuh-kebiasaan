@@ -19,14 +19,22 @@ class StudentController extends Controller
 
     public function index(Request $request)
     {
-        $schoolId = $request->user()->school_id;
+        $user = $request->user();
+        $schoolId = $user->school_id;
         
         // Eager load relasi schoolClass
-        $query = Student::with('schoolClass')->where('school_id', $schoolId);
+        $query = Student::with('schoolClass');
+        if ($user->role === 'superadmin') {
+            if ($request->has('school_id')) {
+                $query->where('school_id', $request->school_id);
+            }
+        } else {
+            $query->where('school_id', $schoolId);
+        }
 
         // Filter Wali Kelas: Guru hanya melihat siswa dari kelas yang dia ampu
-        if ($request->user()->role === 'guru') {
-            $teacher = \App\Models\Teacher::where('user_id', $request->user()->id)->first();
+        if ($user->role === 'guru') {
+            $teacher = \App\Models\Teacher::where('user_id', $user->id)->first();
             if ($teacher) {
                 $classIds = \Illuminate\Support\Facades\DB::table('class_teacher')->where('teacher_id', $teacher->id)->pluck('class_id')->toArray();
                 $classIds2 = \App\Models\SchoolClass::where('teacher_id', $teacher->id)->pluck('id')->toArray();
@@ -59,12 +67,15 @@ class StudentController extends Controller
 
     public function store(Request $request)
     {
-        $schoolId = $request->user()->school_id;
+        $schoolId = $request->user()->school_id ?? $request->school_id;
 
         $request->validate([
             'nis' => 'required|string|unique:students,nis,NULL,id,school_id,' . $schoolId . '|unique:users,username',
             'name' => 'required|string',
-            'class_id' => 'required|exists:classes,id',
+            'class_id' => [
+                'required',
+                \Illuminate\Validation\Rule::exists('classes', 'id')->where('school_id', $schoolId),
+            ],
             'gender' => 'required|in:L,P',
         ]);
 
@@ -101,7 +112,12 @@ class StudentController extends Controller
 
     public function show(Request $request, $id)
     {
-        $student = Student::with('schoolClass')->where('school_id', $request->user()->school_id)->find($id);
+        $user = $request->user();
+        $query = Student::with('schoolClass');
+        if ($user->role !== 'superadmin') {
+            $query->where('school_id', $user->school_id);
+        }
+        $student = $query->find($id);
         
         if (!$student) {
             return $this->errorResponse('Data siswa tidak ditemukan', 404);
@@ -112,17 +128,23 @@ class StudentController extends Controller
 
     public function update(Request $request, $id)
     {
-        $schoolId = $request->user()->school_id;
-        $student = Student::where('school_id', $schoolId)->find($id);
+        $user = $request->user();
+        $schoolId = $user->school_id ?? $request->school_id;
+        $student = $user->role === 'superadmin' 
+            ? Student::find($id) 
+            : Student::where('school_id', $schoolId)->find($id);
 
         if (!$student) {
             return $this->errorResponse('Data siswa tidak ditemukan', 404);
         }
 
         $request->validate([
-            'nis' => 'required|string|unique:students,nis,' . $id . ',id,school_id,' . $schoolId . '|unique:users,username,' . $student->user_id,
+            'nis' => 'required|string|unique:students,nis,' . $id . ',id,school_id,' . $student->school_id . '|unique:users,username,' . $student->user_id,
             'name' => 'required|string',
-            'class_id' => 'required|exists:classes,id',
+            'class_id' => [
+                'required',
+                \Illuminate\Validation\Rule::exists('classes', 'id')->where('school_id', $student->school_id),
+            ],
             'gender' => 'required|in:L,P',
             'status' => 'required|string'
         ]);
@@ -152,7 +174,12 @@ class StudentController extends Controller
 
     public function destroy(Request $request, $id)
     {
-        $student = Student::where('school_id', $request->user()->school_id)->find($id);
+        $user = $request->user();
+        $query = Student::query();
+        if ($user->role !== 'superadmin') {
+            $query->where('school_id', $user->school_id);
+        }
+        $student = $query->find($id);
 
         if (!$student) {
             return $this->errorResponse('Data siswa tidak ditemukan', 404);
@@ -164,18 +191,22 @@ class StudentController extends Controller
 
     public function resetPassword(Request $request, $id)
     {
-        $schoolId = $request->user()->school_id;
-        $student = Student::where('school_id', $schoolId)->find($id);
+        $user = $request->user();
+        $query = Student::query();
+        if ($user->role !== 'superadmin') {
+            $query->where('school_id', $user->school_id);
+        }
+        $student = $query->find($id);
 
         if (!$student) {
             return $this->errorResponse('Data siswa tidak ditemukan', 404);
         }
 
         if ($student->user_id) {
-            $user = User::find($student->user_id);
-            if ($user) {
-                $user->password = Hash::make($student->nis);
-                $user->save();
+            $targetUser = User::find($student->user_id);
+            if ($targetUser) {
+                $targetUser->password = Hash::make($student->nis);
+                $targetUser->save();
             }
         }
 

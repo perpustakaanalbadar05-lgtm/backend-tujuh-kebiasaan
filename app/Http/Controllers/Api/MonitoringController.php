@@ -11,20 +11,28 @@ class MonitoringController extends Controller
 {
     use ApiResponse;
 
+    protected function getSchoolId(Request $request)
+    {
+        return $request->user()->school_id ?? $request->get('school_id');
+    }
+
     public function daily(Request $request)
     {
-        $schoolId = $request->user()->school_id;
+        $schoolId = $this->getSchoolId($request);
+        if (!$schoolId) {
+            return $this->errorResponse('School ID diperlukan', 400);
+        }
+
         $date = $request->get('date', now()->toDateString());
 
         $data = DB::table('journals')
             ->where('journals.school_id', $schoolId)
-            ->where('journals.date', $date)
+            ->where('journals.journal_date', $date)
             ->selectRaw("
                 COUNT(*) as total_journals,
                 SUM(CASE WHEN status = 'approved' THEN 1 ELSE 0 END) as approved,
-                SUM(CASE WHEN status = 'pending_parent' THEN 1 ELSE 0 END) as pending_parent,
-                SUM(CASE WHEN status = 'pending_teacher' THEN 1 ELSE 0 END) as pending_teacher,
-                SUM(CASE WHEN status = 'revision' THEN 1 ELSE 0 END) as revision,
+                SUM(CASE WHEN status IN ('submitted', 'pending_parent', 'pending_teacher') THEN 1 ELSE 0 END) as pending,
+                SUM(CASE WHEN status = 'rejected' OR status = 'revision' THEN 1 ELSE 0 END) as rejected,
                 SUM(CASE WHEN status = 'draft' THEN 1 ELSE 0 END) as draft
             ")
             ->first();
@@ -38,34 +46,37 @@ class MonitoringController extends Controller
             'date' => $date,
             'total_students' => $totalStudents,
             'filled' => $data->total_journals ?? 0,
-            'not_filled' => $totalStudents - ($data->total_journals ?? 0),
+            'not_filled' => max(0, $totalStudents - ($data->total_journals ?? 0)),
             'fill_rate' => $totalStudents > 0 ? round((($data->total_journals ?? 0) / $totalStudents) * 100, 1) : 0,
             'status_breakdown' => [
-                'approved' => $data->approved ?? 0,
-                'pending_parent' => $data->pending_parent ?? 0,
-                'pending_teacher' => $data->pending_teacher ?? 0,
-                'revision' => $data->revision ?? 0,
-                'draft' => $data->draft ?? 0,
+                'approved' => (int) ($data->approved ?? 0),
+                'pending' => (int) ($data->pending ?? 0),
+                'rejected' => (int) ($data->rejected ?? 0),
+                'draft' => (int) ($data->draft ?? 0),
             ],
         ], 'Monitoring harian berhasil diambil');
     }
 
     public function weekly(Request $request)
     {
-        $schoolId = $request->user()->school_id;
+        $schoolId = $this->getSchoolId($request);
+        if (!$schoolId) {
+            return $this->errorResponse('School ID diperlukan', 400);
+        }
+
         $endDate = $request->get('end_date', now()->toDateString());
         $startDate = $request->get('start_date', now()->subDays(6)->toDateString());
 
         $data = DB::table('journals')
             ->where('school_id', $schoolId)
-            ->whereBetween('date', [$startDate, $endDate])
+            ->whereBetween('journal_date', [$startDate, $endDate])
             ->selectRaw("
-                date,
+                journal_date as date,
                 COUNT(*) as total,
                 SUM(CASE WHEN status = 'approved' THEN 1 ELSE 0 END) as approved
             ")
-            ->groupBy('date')
-            ->orderBy('date')
+            ->groupBy('journal_date')
+            ->orderBy('journal_date')
             ->get();
 
         $totalStudents = DB::table('students')
@@ -83,21 +94,25 @@ class MonitoringController extends Controller
 
     public function monthly(Request $request)
     {
-        $schoolId = $request->user()->school_id;
+        $schoolId = $this->getSchoolId($request);
+        if (!$schoolId) {
+            return $this->errorResponse('School ID diperlukan', 400);
+        }
+
         $month = $request->get('month', now()->month);
         $year = $request->get('year', now()->year);
 
         $data = DB::table('journals')
             ->where('school_id', $schoolId)
-            ->whereMonth('date', $month)
-            ->whereYear('date', $year)
+            ->whereMonth('journal_date', $month)
+            ->whereYear('journal_date', $year)
             ->selectRaw("
-                date,
+                journal_date as date,
                 COUNT(*) as total,
                 SUM(CASE WHEN status = 'approved' THEN 1 ELSE 0 END) as approved
             ")
-            ->groupBy('date')
-            ->orderBy('date')
+            ->groupBy('journal_date')
+            ->orderBy('journal_date')
             ->get();
 
         // Per-class breakdown
@@ -105,8 +120,8 @@ class MonitoringController extends Controller
             ->join('students', 'journals.student_id', '=', 'students.id')
             ->join('classes', 'students.class_id', '=', 'classes.id')
             ->where('journals.school_id', $schoolId)
-            ->whereMonth('journals.date', $month)
-            ->whereYear('journals.date', $year)
+            ->whereMonth('journals.journal_date', $month)
+            ->whereYear('journals.journal_date', $year)
             ->selectRaw("
                 classes.name as class_name,
                 classes.id as class_id,
@@ -127,7 +142,10 @@ class MonitoringController extends Controller
 
     public function semester(Request $request)
     {
-        $schoolId = $request->user()->school_id;
+        $schoolId = $this->getSchoolId($request);
+        if (!$schoolId) {
+            return $this->errorResponse('School ID diperlukan', 400);
+        }
 
         // Get active semester date range (simplified)
         $data = DB::table('journals')
@@ -168,7 +186,10 @@ class MonitoringController extends Controller
 
     public function classComparison(Request $request)
     {
-        $schoolId = $request->user()->school_id;
+        $schoolId = $this->getSchoolId($request);
+        if (!$schoolId) {
+            return $this->errorResponse('School ID diperlukan', 400);
+        }
         
         $data = DB::table('classes')
             ->leftJoin('students', function($join) {
@@ -191,8 +212,6 @@ class MonitoringController extends Controller
 
         // Calculate participation rate
         foreach ($data as $item) {
-            // Assume 30 days active per month roughly for calculation or total journals / (students * expected_days)
-            // For simplicity, we just use raw count or daily average.
             $item->average_score = $item->average_score ? round($item->average_score, 1) : 0;
             $item->total_journals_filled = $item->total_journals_filled ?? 0;
         }
@@ -200,3 +219,4 @@ class MonitoringController extends Controller
         return $this->successResponse($data, 'Data perbandingan kelas berhasil diambil');
     }
 }
+
