@@ -16,6 +16,11 @@ class School extends Model
         return $this->hasMany(User::class);
     }
 
+    public function admin()
+    {
+        return $this->hasOne(User::class)->where('role', 'admin');
+    }
+
     public function academicYears()
     {
         return $this->hasMany(AcademicYear::class);

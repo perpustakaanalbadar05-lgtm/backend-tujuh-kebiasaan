@@ -38,6 +38,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::prefix('master')->middleware(['role:admin,superadmin'])->group(function() {
         Route::apiResource('schools', \App\Http\Controllers\Api\Master\SchoolController::class);
         Route::patch('schools/{id}/status', [\App\Http\Controllers\Api\Master\SchoolController::class, 'toggleStatus']);
+        Route::post('schools/{id}/admin', [\App\Http\Controllers\Api\Master\SchoolController::class, 'createOrResetAdmin']);
 
         Route::get('students/template', [\App\Http\Controllers\Api\Master\StudentController::class, 'exportTemplate']);
         Route::get('students/export', [\App\Http\Controllers\Api\Master\StudentController::class, 'export']);
