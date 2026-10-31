@@ -60,6 +60,9 @@ class SchoolController extends Controller
                 'created_by' => $request->user()->id,
             ]);
 
+            // Inisialisasi default Tahun Ajaran, Semester, 7 Kebiasaan, dan Predikat
+            School::initializeDefaults($school->id, $request->user()->id);
+
             // Buat akun Admin Sekolah otomatis
             $baseUsername = $request->admin_username ?: ($request->npsn ? 'admin_' . $request->npsn : 'admin_' . Str::slug($request->name, '_'));
             $adminUsername = $baseUsername;
