@@ -19,7 +19,7 @@ class ReportExport implements FromCollection, WithHeadings, WithMapping, WithSty
 
     public function __construct($schoolId = null, $academicYearId = null, $semesterId = null)
     {
-        $this->schoolId = $schoolId ?? \Illuminate\Support\Facades\Auth::user()?->school_id;
+        $this->schoolId = $schoolId ?? \Illuminate\Support\Facades\Auth::user()?->school_id ?? \App\Models\School::first()?->id;
         $this->academicYearId = $academicYearId;
         $this->semesterId = $semesterId;
         $this->predicates = Predicate::where('school_id', $this->schoolId)

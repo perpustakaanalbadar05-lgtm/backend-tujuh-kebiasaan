@@ -15,10 +15,10 @@ class SubmitEvaluationRequest extends FormRequest
     {
         return [
             'answers' => 'required|array',
-            'answers.praktik_baik' => 'required|string',
-            'answers.kendala' => 'required|string',
-            'answers.solusi' => 'required|string',
-            'answers.analisis' => 'required|string',
+            'answers.praktik_baik' => 'nullable|string',
+            'answers.kendala' => 'nullable|string',
+            'answers.solusi' => 'nullable|string',
+            'answers.analisis' => 'nullable|string',
         ];
     }
 }
