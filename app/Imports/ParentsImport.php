@@ -29,8 +29,8 @@ class ParentsImport implements ToCollection, WithHeadingRow, WithValidation
 
         foreach ($rows as $row) {
             // Kolom Excel: Nama Lengkap, Username, No. Telepon / WhatsApp, Email, NIS Anak (Pisahkan Koma), Relasi (Ayah/Ibu/Wali)
-            $name = $row['nama_lengkap'] ?? null;
-            $phone = $row['no_telepon_whatsapp'] ?? null;
+            $name = $row['nama_lengkap'] ?? $row['nama'] ?? null;
+            $phone = $row['no_telepon_whatsapp'] ?? $row['telepon'] ?? $row['no_hp'] ?? $row['phone'] ?? null;
             $email = $row['email'] ?? null;
             $nisAnak = $row['nis_anak_pisahkan_koma'] ?? $row['nis_anak'] ?? $row['nis'] ?? null;
             $relasi = $row['relasi_ayahibuwali'] ?? $row['relasi'] ?? 'Wali';
@@ -140,9 +140,7 @@ class ParentsImport implements ToCollection, WithHeadingRow, WithValidation
 
     public function rules(): array
     {
-        return [
-            'nama_lengkap' => 'required|string',
-        ];
+        return [];
     }
 
     public function customValidationMessages(): array
