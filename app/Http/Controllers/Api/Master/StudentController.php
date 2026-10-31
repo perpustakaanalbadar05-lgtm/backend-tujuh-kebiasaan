@@ -12,6 +12,7 @@ use App\Exports\StudentTemplateExport;
 use Maatwebsite\Excel\Facades\Excel;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
 
 class StudentController extends Controller
 {
@@ -67,26 +68,74 @@ class StudentController extends Controller
 
     public function store(Request $request)
     {
-        $schoolId = $request->user()->school_id ?? $request->school_id;
+        $schoolId = $request->user()->school_id ?? $request->school_id ?? \App\Models\School::first()?->id;
 
         $request->validate([
-            'nis' => 'required|string|unique:students,nis,NULL,id,school_id,' . $schoolId . '|unique:users,username',
-            'name' => 'required|string',
-            'class_id' => [
-                'required',
-                \Illuminate\Validation\Rule::exists('classes', 'id')->where('school_id', $schoolId),
-            ],
-            'gender' => 'required|in:L,P',
+            'name' => 'required|string|max:255',
+            'nis' => 'nullable|string',
+            'class_id' => 'nullable',
+            'gender' => 'nullable|string',
         ]);
+
+        // Auto-resolve class_id
+        $classId = $request->class_id;
+        if (!$classId || !\App\Models\SchoolClass::where('school_id', $schoolId)->where('id', $classId)->exists()) {
+            $existingClass = \App\Models\SchoolClass::where('school_id', $schoolId)->first();
+            if (!$existingClass) {
+                \App\Models\School::initializeDefaults($schoolId, $request->user()->id ?? null);
+                $ay = \App\Models\AcademicYear::where('school_id', $schoolId)->where('active', true)->first();
+                $existingClass = \App\Models\SchoolClass::create([
+                    'school_id' => $schoolId,
+                    'academic_year_id' => $ay ? $ay->id : 1,
+                    'name' => 'Kelas 7A',
+                    'grade' => '7',
+                    'active' => true,
+                ]);
+            }
+            $classId = $existingClass->id;
+        }
+
+        // Normalize gender
+        $rawGender = strtoupper(substr(trim($request->gender ?? 'L'), 0, 1));
+        $gender = ($rawGender === 'P') ? 'P' : 'L';
+
+        // Normalize NIS
+        $nis = trim((string)($request->nis ?? ''));
+        if (empty($nis)) {
+            $nis = date('Y') . str_pad((string)(Student::where('school_id', $schoolId)->count() + 1), 4, '0', STR_PAD_LEFT);
+        }
+
+        if (Student::where('school_id', $schoolId)->where('nis', $nis)->exists()) {
+            return $this->errorResponse('Siswa dengan NIS ' . $nis . ' sudah terdaftar di sekolah ini.', 422);
+        }
 
         DB::beginTransaction();
         try {
-            // Buat akun user siswa terlebih dahulu
+            // Unique username
+            $baseUsername = $nis;
+            $username = $baseUsername;
+            $counter = 1;
+            while (User::where('username', $username)->exists()) {
+                $username = $baseUsername . '_' . $counter++;
+            }
+
+            // Unique email
+            $slug = Str::slug($request->name, '');
+            if (empty($slug)) $slug = 'siswa';
+            $userEmail = $slug . $nis . '@student.g7kaih.id';
+            $ec = 1;
+            while (User::where('email', $userEmail)->exists()) {
+                $userEmail = $slug . $nis . '_' . $ec++ . '@student.g7kaih.id';
+            }
+
+            $password = $request->password ?: ($nis ?: 'password');
+
+            // Buat akun user siswa
             $user = User::create([
                 'name' => $request->name,
-                'username' => $request->nis, // Default username = NIS
-                'email' => strtolower(str_replace(' ', '', $request->name)) . rand(10,99) . '@student.g7kaih.id',
-                'password' => Hash::make('password'),
+                'username' => $username,
+                'email' => $userEmail,
+                'password' => Hash::make($password),
                 'role' => 'siswa',
                 'school_id' => $schoolId,
             ]);
@@ -95,10 +144,10 @@ class StudentController extends Controller
             $student = Student::create([
                 'school_id' => $schoolId,
                 'user_id' => $user->id,
-                'class_id' => $request->class_id,
-                'nis' => $request->nis,
+                'class_id' => $classId,
+                'nis' => $nis,
                 'name' => $request->name,
-                'gender' => $request->gender,
+                'gender' => $gender,
                 'status' => 'active',
             ]);
 

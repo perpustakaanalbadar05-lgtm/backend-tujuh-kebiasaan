@@ -12,6 +12,7 @@ use App\Exports\TeacherTemplateExport;
 use Maatwebsite\Excel\Facades\Excel;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
 
 class TeacherController extends Controller
 {
@@ -38,24 +39,49 @@ class TeacherController extends Controller
 
     public function store(Request $request)
     {
-        $schoolId = $request->user()->school_id;
+        $schoolId = $request->user()->school_id ?? \App\Models\School::first()?->id;
 
         $request->validate([
             'name' => 'required|string|max:255',
             'nip' => 'nullable|string',
             'email' => 'nullable|email',
             'phone' => 'nullable|string',
+            'password' => 'nullable|string|min:6',
         ]);
 
         DB::beginTransaction();
         try {
-            $username = $request->nip ?? strtolower(str_replace(' ', '.', $request->name)) . rand(10,99);
+            $baseUsername = $request->nip ?: Str::slug($request->name, '.');
+            if (empty($baseUsername)) {
+                $baseUsername = 'guru';
+            }
+            $username = $baseUsername;
+            $counter = 1;
+            while (User::where('username', $username)->exists()) {
+                $username = $baseUsername . '_' . $counter++;
+            }
+
+            $userEmail = $request->email;
+            if ($userEmail && User::where('email', $userEmail)->exists()) {
+                $userEmail = null;
+            }
+            if (!$userEmail) {
+                $slug = Str::slug($request->name, '');
+                if (empty($slug)) $slug = 'guru';
+                $userEmail = $slug . rand(100, 999) . '@teacher.g7kaih.id';
+                $ec = 1;
+                while (User::where('email', $userEmail)->exists()) {
+                    $userEmail = $slug . rand(100, 999) . '_' . $ec++ . '@teacher.g7kaih.id';
+                }
+            }
+
+            $password = $request->password ?: ($request->nip ?: 'password');
 
             $user = User::create([
                 'name' => $request->name,
                 'username' => $username,
-                'email' => $request->email ?? strtolower(str_replace(' ', '', $request->name)) . rand(10,99) . '@teacher.g7kaih.id',
-                'password' => Hash::make('password'),
+                'email' => $userEmail,
+                'password' => Hash::make($password),
                 'role' => 'guru',
                 'school_id' => $schoolId,
             ]);
@@ -67,7 +93,7 @@ class TeacherController extends Controller
                 'name' => $request->name,
                 'email' => $request->email,
                 'phone' => $request->phone,
-                'created_by' => $request->user()->id,
+                'created_by' => $request->user()->id ?? null,
             ]);
 
             DB::commit();

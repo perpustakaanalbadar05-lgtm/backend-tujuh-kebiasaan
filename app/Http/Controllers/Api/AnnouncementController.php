@@ -36,13 +36,15 @@ class AnnouncementController extends Controller
 
     public function store(Request $request)
     {
+        $schoolId = $request->user()->school_id ?? \App\Models\School::first()?->id;
+
         $request->validate([
             'title' => 'required|string|max:255',
             'content' => 'required|string',
         ]);
 
         $announcement = Announcement::create([
-            'school_id' => $request->user()->school_id,
+            'school_id' => $schoolId,
             'title' => $request->title,
             'content' => $request->content,
             'is_active' => true,

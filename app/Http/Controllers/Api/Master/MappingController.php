@@ -54,7 +54,7 @@ class MappingController extends Controller
             ->exists();
 
         if ($exists) {
-            return $this->errorResponse('Guru sudah dipetakan ke kelas ini', 409);
+            return $this->successResponse(null, 'Guru sudah dipetakan ke kelas ini', 200);
         }
 
         DB::table('class_teacher')->insert([
@@ -115,25 +115,20 @@ class MappingController extends Controller
         $request->validate([
             'parent_id' => 'required|exists:parents,id',
             'student_id' => 'required|exists:students,id',
-            'relationship' => 'nullable|string|in:Ayah,Ibu,Wali',
+            'relationship' => 'nullable|string',
         ]);
 
-        $exists = DB::table('student_parents')
-            ->where('parent_id', $request->parent_id)
-            ->where('student_id', $request->student_id)
-            ->exists();
-
-        if ($exists) {
-            return $this->errorResponse('Orang tua sudah dipetakan ke siswa ini', 409);
-        }
-
-        DB::table('student_parents')->insert([
-            'parent_id' => $request->parent_id,
-            'student_id' => $request->student_id,
-            'relationship' => $request->relationship ?? 'Wali',
-            'created_at' => now(),
-            'updated_at' => now(),
-        ]);
+        DB::table('student_parents')->updateOrInsert(
+            [
+                'parent_id' => $request->parent_id,
+                'student_id' => $request->student_id,
+            ],
+            [
+                'relationship' => $request->relationship ?? 'Wali',
+                'updated_at' => now(),
+                'created_at' => now(),
+            ]
+        );
 
         return $this->successResponse(null, 'Orang tua berhasil dipetakan ke siswa', 201);
     }

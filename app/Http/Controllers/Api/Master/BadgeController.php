@@ -35,25 +35,30 @@ class BadgeController extends Controller
             return $this->errorResponse('Unauthorized access', 403);
         }
 
+        $condType = in_array($request->condition_type, ['consistent_days', 'perfect_score', 'habit_specific', 'manual'])
+            ? $request->condition_type
+            : 'manual';
+
         $request->validate([
             'name' => 'required|string|max:255',
             'description' => 'nullable|string',
             'icon' => 'nullable|string',
-            'condition_type' => 'required|in:consistent_days,perfect_score,habit_specific,manual',
             'condition_value' => 'nullable|integer',
             'is_global' => 'boolean'
         ]);
 
         // Only superadmin can create global badges
-        $schoolId = $request->is_global && $user->role === 'superadmin' ? null : $user->school_id;
+        $schoolId = ($request->is_global && $user->role === 'superadmin')
+            ? null
+            : ($user->school_id ?? \App\Models\School::first()?->id);
 
         $badge = Badge::create([
             'school_id' => $schoolId,
             'name' => $request->name,
             'description' => $request->description,
-            'icon' => $request->icon,
-            'condition_type' => $request->condition_type,
-            'condition_value' => $request->condition_value,
+            'icon' => $request->icon ?? '🏆',
+            'condition_type' => $condType,
+            'condition_value' => $request->condition_value ? (int)$request->condition_value : null,
             'is_active' => true,
         ]);
 

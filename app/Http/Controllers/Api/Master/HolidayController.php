@@ -31,20 +31,25 @@ class HolidayController extends Controller
 
     public function store(Request $request)
     {
-        $schoolId = $request->user()->school_id;
+        $schoolId = $request->user()->school_id ?? \App\Models\School::first()?->id;
+        $title = $request->title ?? $request->name;
+
+        if (!$title) {
+            return $this->errorResponse('Keterangan hari libur wajib diisi', 422);
+        }
+
+        $type = in_array($request->type, ['nasional', 'sekolah', 'khusus']) ? $request->type : 'sekolah';
 
         $request->validate([
-            'title' => 'required|string|max:255',
             'date' => 'required|date',
-            'type' => 'nullable|string|in:nasional,sekolah,khusus',
         ]);
 
         $holiday = Holiday::create([
             'school_id' => $schoolId,
-            'title' => $request->title,
+            'title' => $title,
             'date' => $request->date,
-            'type' => $request->type ?? 'sekolah',
-            'created_by' => $request->user()->id,
+            'type' => $type,
+            'created_by' => $request->user()->id ?? null,
         ]);
 
         return $this->successResponse($holiday, 'Hari libur berhasil ditambahkan', 201);
@@ -63,24 +68,21 @@ class HolidayController extends Controller
 
     public function update(Request $request, $id)
     {
-        $schoolId = $request->user()->school_id;
+        $schoolId = $request->user()->school_id ?? \App\Models\School::first()?->id;
         $holiday = Holiday::where('school_id', $schoolId)->find($id);
 
         if (!$holiday) {
             return $this->errorResponse('Hari libur tidak ditemukan', 404);
         }
 
-        $request->validate([
-            'title' => 'required|string|max:255',
-            'date' => 'required|date',
-            'type' => 'nullable|string|in:nasional,sekolah,khusus',
-        ]);
+        $title = $request->title ?? $request->name ?? $holiday->title;
+        $type = $request->has('type') && in_array($request->type, ['nasional', 'sekolah', 'khusus']) ? $request->type : $holiday->type;
 
         $holiday->update([
-            'title' => $request->title,
-            'date' => $request->date,
-            'type' => $request->type ?? 'sekolah',
-            'updated_by' => $request->user()->id,
+            'title' => $title,
+            'date' => $request->date ?? $holiday->date,
+            'type' => $type,
+            'updated_by' => $request->user()->id ?? null,
         ]);
 
         return $this->successResponse($holiday, 'Hari libur berhasil diperbarui');

@@ -20,20 +20,20 @@ class PredicateController extends Controller
 
     public function store(Request $request)
     {
-        $schoolId = $request->user()->school_id;
+        $schoolId = $request->user()->school_id ?? \App\Models\School::first()?->id;
 
         $request->validate([
             'name' => 'required|string|max:255',
-            'min_score' => 'required|integer|min:0|max:100',
-            'max_score' => 'required|integer|min:0|max:100|gte:min_score',
+            'min_score' => 'required|numeric|min:0|max:100',
+            'max_score' => 'required|numeric|min:0|max:100|gte:min_score',
         ]);
 
         $predicate = Predicate::create([
             'school_id' => $schoolId,
             'name' => $request->name,
-            'min_score' => $request->min_score,
-            'max_score' => $request->max_score,
-            'created_by' => $request->user()->id,
+            'min_score' => (int)$request->min_score,
+            'max_score' => (int)$request->max_score,
+            'created_by' => $request->user()->id ?? null,
         ]);
 
         return $this->successResponse($predicate, 'Predikat berhasil ditambahkan', 201);
@@ -52,7 +52,7 @@ class PredicateController extends Controller
 
     public function update(Request $request, $id)
     {
-        $schoolId = $request->user()->school_id;
+        $schoolId = $request->user()->school_id ?? \App\Models\School::first()?->id;
         $predicate = Predicate::where('school_id', $schoolId)->find($id);
 
         if (!$predicate) {
@@ -61,15 +61,15 @@ class PredicateController extends Controller
 
         $request->validate([
             'name' => 'required|string|max:255',
-            'min_score' => 'required|integer|min:0|max:100',
-            'max_score' => 'required|integer|min:0|max:100|gte:min_score',
+            'min_score' => 'required|numeric|min:0|max:100',
+            'max_score' => 'required|numeric|min:0|max:100|gte:min_score',
         ]);
 
         $predicate->update([
             'name' => $request->name,
-            'min_score' => $request->min_score,
-            'max_score' => $request->max_score,
-            'updated_by' => $request->user()->id,
+            'min_score' => (int)$request->min_score,
+            'max_score' => (int)$request->max_score,
+            'updated_by' => $request->user()->id ?? null,
         ]);
 
         return $this->successResponse($predicate, 'Predikat berhasil diperbarui');

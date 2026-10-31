@@ -9,6 +9,7 @@ use Illuminate\Http\Request;
 use App\Traits\ApiResponse;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
 use Maatwebsite\Excel\Facades\Excel;
 use App\Exports\ParentsExport;
 use App\Exports\ParentTemplateExport;
@@ -38,22 +39,47 @@ class ParentController extends Controller
 
     public function store(Request $request)
     {
-        $schoolId = $request->user()->school_id;
+        $schoolId = $request->user()->school_id ?? \App\Models\School::first()?->id;
 
         $request->validate([
             'name' => 'required|string|max:255',
             'email' => 'nullable|email',
             'phone' => 'nullable|string',
-            'username' => 'required|string|unique:users,username',
+            'username' => 'nullable|string',
+            'password' => 'nullable|string|min:6',
         ]);
 
         DB::beginTransaction();
         try {
+            $baseUsername = $request->username ?: ($request->phone ?: ('ortu_' . Str::slug($request->name, '_')));
+            if (empty($baseUsername)) $baseUsername = 'orangtua';
+            $username = $baseUsername;
+            $counter = 1;
+            while (User::where('username', $username)->exists()) {
+                $username = $baseUsername . '_' . $counter++;
+            }
+
+            $userEmail = $request->email;
+            if ($userEmail && User::where('email', $userEmail)->exists()) {
+                $userEmail = null;
+            }
+            if (!$userEmail) {
+                $slug = Str::slug($request->name, '');
+                if (empty($slug)) $slug = 'ortu';
+                $userEmail = $slug . rand(100, 999) . '@parent.g7kaih.id';
+                $ec = 1;
+                while (User::where('email', $userEmail)->exists()) {
+                    $userEmail = $slug . rand(100, 999) . '_' . $ec++ . '@parent.g7kaih.id';
+                }
+            }
+
+            $password = $request->password ?: ($request->phone ?: 'password');
+
             $user = User::create([
                 'name' => $request->name,
-                'username' => $request->username,
-                'email' => $request->email ?? strtolower(str_replace(' ', '', $request->name)) . rand(10,99) . '@parent.g7kaih.id',
-                'password' => Hash::make('password'),
+                'username' => $username,
+                'email' => $userEmail,
+                'password' => Hash::make($password),
                 'role' => 'orangtua',
                 'school_id' => $schoolId,
             ]);
@@ -64,11 +90,18 @@ class ParentController extends Controller
                 'name' => $request->name,
                 'email' => $request->email,
                 'phone' => $request->phone,
-                'created_by' => $request->user()->id,
+                'created_by' => $request->user()->id ?? null,
             ]);
 
+            if ($request->filled('student_id')) {
+                DB::table('student_parents')->updateOrInsert(
+                    ['parent_id' => $parent->id, 'student_id' => $request->student_id],
+                    ['relationship' => $request->relationship ?? 'Wali', 'created_at' => now(), 'updated_at' => now()]
+                );
+            }
+
             DB::commit();
-            return $this->successResponse($parent->load('user'), 'Orang tua berhasil ditambahkan', 201);
+            return $this->successResponse($parent->load(['user', 'students']), 'Orang tua berhasil ditambahkan', 201);
         } catch (\Exception $e) {
             DB::rollBack();
             return $this->errorResponse('Gagal menambahkan orang tua: ' . $e->getMessage(), 500);

@@ -28,19 +28,47 @@ class SemesterController extends Controller
 
     public function store(Request $request)
     {
-        $schoolId = $request->user()->school_id;
+        $schoolId = $request->user()->school_id ?? \App\Models\School::first()?->id;
 
-        $request->validate([
-            'academic_year_id' => 'required|exists:academic_years,id',
-            'semester' => 'required|string|in:Ganjil,Genap',
-        ]);
+        // Auto-resolve academic_year_id
+        $academicYearId = $request->academic_year_id;
+        if (!$academicYearId || !\App\Models\AcademicYear::where('school_id', $schoolId)->where('id', $academicYearId)->exists()) {
+            $activeYear = \App\Models\AcademicYear::where('school_id', $schoolId)->where('active', true)->first()
+                ?? \App\Models\AcademicYear::where('school_id', $schoolId)->latest()->first();
+
+            if (!$activeYear) {
+                $curYear = date('Y');
+                $activeYear = \App\Models\AcademicYear::create([
+                    'school_id' => $schoolId,
+                    'year' => "{$curYear}/" . ($curYear + 1),
+                    'active' => true,
+                    'created_by' => $request->user()->id ?? null,
+                ]);
+            }
+            $academicYearId = $activeYear->id;
+        }
+
+        // Normalize semester
+        $rawSemester = strtolower(trim($request->semester ?? $request->name ?? 'Ganjil'));
+        if (str_contains($rawSemester, 'genap') || $rawSemester === '2') {
+            $semesterName = 'Genap';
+        } else {
+            $semesterName = 'Ganjil';
+        }
+
+        $hasActive = Semester::where('school_id', $schoolId)->where('active', true)->exists();
+        $isActive = $request->has('active') ? (bool)$request->input('active') : !$hasActive;
+
+        if ($isActive) {
+            Semester::where('school_id', $schoolId)->update(['active' => false]);
+        }
 
         $semester = Semester::create([
             'school_id' => $schoolId,
-            'academic_year_id' => $request->academic_year_id,
-            'semester' => $request->semester,
-            'active' => false,
-            'created_by' => $request->user()->id,
+            'academic_year_id' => $academicYearId,
+            'semester' => $semesterName,
+            'active' => $isActive,
+            'created_by' => $request->user()->id ?? null,
         ]);
 
         return $this->successResponse($semester->load('academicYear'), 'Semester berhasil ditambahkan', 201);
@@ -61,22 +89,28 @@ class SemesterController extends Controller
 
     public function update(Request $request, $id)
     {
-        $schoolId = $request->user()->school_id;
+        $schoolId = $request->user()->school_id ?? \App\Models\School::first()?->id;
         $semester = Semester::where('school_id', $schoolId)->find($id);
 
         if (!$semester) {
             return $this->errorResponse('Semester tidak ditemukan', 404);
         }
 
-        $request->validate([
-            'academic_year_id' => 'required|exists:academic_years,id',
-            'semester' => 'required|string|in:Ganjil,Genap',
-        ]);
+        $academicYearId = $request->academic_year_id ?? $semester->academic_year_id;
+        if (!\App\Models\AcademicYear::where('school_id', $schoolId)->where('id', $academicYearId)->exists()) {
+            $academicYearId = $semester->academic_year_id;
+        }
+
+        $semesterName = $semester->semester;
+        if ($request->has('semester')) {
+            $rawSemester = strtolower(trim($request->semester));
+            $semesterName = (str_contains($rawSemester, 'genap') || $rawSemester === '2') ? 'Genap' : 'Ganjil';
+        }
 
         $semester->update([
-            'academic_year_id' => $request->academic_year_id,
-            'semester' => $request->semester,
-            'updated_by' => $request->user()->id,
+            'academic_year_id' => $academicYearId,
+            'semester' => $semesterName,
+            'updated_by' => $request->user()->id ?? null,
         ]);
 
         return $this->successResponse($semester->load('academicYear'), 'Semester berhasil diperbarui');

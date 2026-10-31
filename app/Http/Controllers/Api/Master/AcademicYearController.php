@@ -20,21 +20,26 @@ class AcademicYearController extends Controller
 
     public function store(Request $request)
     {
-        $request->validate([
-            'year' => 'required|string|max:255',
-            'active' => 'boolean'
-        ]);
+        $schoolId = $request->user()->school_id ?? \App\Models\School::first()?->id;
+        $yearVal = $request->input('year') ?? $request->input('name');
 
-        $schoolId = $request->user()->school_id;
+        if (!$yearVal) {
+            return $this->errorResponse('Tahun ajaran wajib diisi', 422);
+        }
 
-        if ($request->input('active', false)) {
+        // Jika belum ada tahun ajaran aktif, jadikan yang baru ini aktif secara otomatis
+        $hasActive = AcademicYear::where('school_id', $schoolId)->where('active', true)->exists();
+        $isActive = $request->has('active') ? (bool)$request->input('active') : !$hasActive;
+
+        if ($isActive) {
             AcademicYear::where('school_id', $schoolId)->update(['active' => false]);
         }
 
         $year = AcademicYear::create([
             'school_id' => $schoolId,
-            'year' => $request->year,
-            'active' => $request->input('active', false),
+            'year' => $yearVal,
+            'active' => $isActive,
+            'created_by' => $request->user()->id ?? null,
         ]);
 
         return $this->successResponse($year, 'Tahun Ajaran berhasil ditambahkan', 201);
@@ -42,19 +47,20 @@ class AcademicYearController extends Controller
 
     public function update(Request $request, $id)
     {
-        $request->validate([
-            'year' => 'required|string|max:255',
-            'active' => 'boolean'
-        ]);
-
-        $schoolId = $request->user()->school_id;
+        $schoolId = $request->user()->school_id ?? \App\Models\School::first()?->id;
         $year = AcademicYear::where('school_id', $schoolId)->findOrFail($id);
 
-        if ($request->input('active', false)) {
+        $yearVal = $request->input('year') ?? $request->input('name') ?? $year->year;
+        $isActive = $request->has('active') ? (bool)$request->input('active') : $year->active;
+
+        if ($isActive) {
             AcademicYear::where('school_id', $schoolId)->where('id', '!=', $id)->update(['active' => false]);
         }
 
-        $year->update($request->only(['year', 'active']));
+        $year->update([
+            'year' => $yearVal,
+            'active' => $isActive,
+        ]);
 
         return $this->successResponse($year, 'Tahun Ajaran berhasil diperbarui');
     }
