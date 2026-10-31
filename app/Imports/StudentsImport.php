@@ -23,34 +23,41 @@ class StudentsImport implements ToModel, WithHeadingRow, WithValidation, SkipsEm
     public function model(array $row)
     {
         return DB::transaction(function () use ($row) {
-            $nis = trim((string)$row['nis']);
+            $nis = trim((string)($row['nis'] ?? $row['nomor_induk'] ?? ''));
             if (empty($nis)) return null;
+
+            $name = trim((string)($row['nama'] ?? $row['nama_lengkap'] ?? $row['nama_siswa'] ?? ''));
+            if (empty($name)) {
+                throw new \Exception("Kolom Nama Siswa tidak boleh kosong pada NIS {$nis}.");
+            }
 
             // 1. Cek atau Buat User
             $user = User::where('school_id', $this->schoolId)
                 ->where('username', $nis)
                 ->first();
 
+            $email = !empty($row['email']) ? trim((string)$row['email']) : null;
+
             if (!$user) {
                 // If username is taken globally, suffix with schoolId to guarantee uniqueness
                 $username = User::where('username', $nis)->exists() ? "{$nis}_{$this->schoolId}" : $nis;
                 $user = User::create([
-                    'name' => $row['nama'],
+                    'name' => $name,
                     'username' => $username,
-                    'email' => !empty($row['email']) ? $row['email'] : ($nis . '_' . $this->schoolId . '@student.g7kaih.id'),
+                    'email' => !empty($email) ? $email : ($nis . '_' . $this->schoolId . '@student.g7kaih.id'),
                     'password' => Hash::make($nis),
                     'role' => 'siswa',
                     'school_id' => $this->schoolId,
                 ]);
             } else {
                 $user->update([
-                    'name' => $row['nama'],
-                    'email' => !empty($row['email']) ? $row['email'] : $user->email,
+                    'name' => $name,
+                    'email' => !empty($email) ? $email : $user->email,
                 ]);
             }
 
             // 2. Cari atau Auto-Create Kelas
-            $className = trim((string)($row['nama_kelas'] ?? ''));
+            $className = trim((string)($row['nama_kelas'] ?? $row['kelas'] ?? $row['rombel'] ?? ''));
             $schoolClass = null;
 
             if (!empty($className)) {
@@ -93,14 +100,15 @@ class StudentsImport implements ToModel, WithHeadingRow, WithValidation, SkipsEm
                 ->where('nis', $nis)
                 ->first();
 
-            $gender = strtoupper(trim((string)($row['jenis_kelamin'] ?? 'L'))) === 'P' ? 'P' : 'L';
+            $genderRaw = strtolower(trim((string)($row['jenis_kelamin'] ?? $row['jk'] ?? $row['gender'] ?? 'l')));
+            $gender = str_starts_with($genderRaw, 'p') ? 'P' : 'L';
 
             if ($student) {
                 $student->update([
                     'user_id' => $user->id,
                     'class_id' => $schoolClass->id,
                     'nisn' => $row['nisn'] ?? $student->nisn,
-                    'name' => $row['nama'],
+                    'name' => $name,
                     'gender' => $gender,
                     'birth_place' => $row['tempat_lahir'] ?? $student->birth_place,
                     'birth_date' => $row['tanggal_lahir'] ?? $student->birth_date,
@@ -116,7 +124,7 @@ class StudentsImport implements ToModel, WithHeadingRow, WithValidation, SkipsEm
                 'class_id' => $schoolClass->id,
                 'nis' => $nis,
                 'nisn' => $row['nisn'] ?? null,
-                'name' => $row['nama'],
+                'name' => $name,
                 'gender' => $gender,
                 'birth_place' => $row['tempat_lahir'] ?? null,
                 'birth_date' => $row['tanggal_lahir'] ?? null,
@@ -130,9 +138,6 @@ class StudentsImport implements ToModel, WithHeadingRow, WithValidation, SkipsEm
     {
         return [
             'nis' => 'required',
-            'nama' => 'required|string',
-            'jenis_kelamin' => 'required|in:l,p,L,P',
-            'nama_kelas' => 'required|string',
         ];
     }
 

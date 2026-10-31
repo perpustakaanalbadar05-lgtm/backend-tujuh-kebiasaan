@@ -23,14 +23,14 @@ class TeachersImport implements ToModel, WithHeadingRow, WithValidation, SkipsEm
     public function model(array $row)
     {
         return DB::transaction(function () use ($row) {
-            $nip = trim((string)($row['nip'] ?? ''));
-            $name = trim((string)($row['nama'] ?? ''));
+            $nip = trim((string)($row['nip'] ?? $row['nik'] ?? ''));
+            $name = trim((string)($row['nama'] ?? $row['nama_lengkap'] ?? $row['nama_guru'] ?? ''));
             if (empty($nip) || empty($name)) {
                 return null;
             }
 
             $email = !empty($row['email']) ? trim((string)$row['email']) : null;
-            $phone = !empty($row['telepon']) ? trim((string)$row['telepon']) : null;
+            $phone = !empty($row['telepon']) ? trim((string)$row['telepon']) : (!empty($row['no_hp']) ? trim((string)$row['no_hp']) : (!empty($row['phone']) ? trim((string)$row['phone']) : null));
 
             // 1. Cek atau Buat User
             $user = User::where('school_id', $this->schoolId)
