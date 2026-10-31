@@ -13,7 +13,7 @@ class MonitoringController extends Controller
 
     protected function getSchoolId(Request $request)
     {
-        return $request->user()->school_id ?? $request->get('school_id');
+        return $request->user()->school_id ?? $request->get('school_id') ?? \App\Models\School::first()?->id;
     }
 
     public function daily(Request $request)

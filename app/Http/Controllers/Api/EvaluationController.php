@@ -15,7 +15,7 @@ class EvaluationController extends Controller
 
     public function index(Request $request)
     {
-        $schoolId = $request->user()->school_id;
+        $schoolId = $request->user()->school_id ?? \App\Models\School::first()?->id;
         $userId = $request->user()->id;
 
         // Cari evaluasi aktif untuk sekolah ini, jika belum ada, buatkan template otomatis
@@ -44,7 +44,8 @@ class EvaluationController extends Controller
     public function submit(SubmitEvaluationRequest $request, $id)
     {
 
-        $evaluation = Evaluation::where('school_id', $request->user()->school_id)->findOrFail($id);
+        $schoolId = $request->user()->school_id ?? \App\Models\School::first()?->id;
+        $evaluation = Evaluation::where('school_id', $schoolId)->findOrFail($id);
 
         $answer = EvaluationAnswer::updateOrCreate(
             [
