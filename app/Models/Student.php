@@ -30,4 +30,16 @@ class Student extends Model
     {
         return $this->belongsTo(Teacher::class, 'validator_id');
     }
+
+    public function journals()
+    {
+        return $this->hasMany(Journal::class);
+    }
+
+    public function parents()
+    {
+        return $this->belongsToMany(StudentParent::class, 'student_parents', 'student_id', 'parent_id')
+                    ->withPivot('relationship')
+                    ->withTimestamps();
+    }
 }
