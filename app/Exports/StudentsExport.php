@@ -11,9 +11,9 @@ class StudentsExport implements FromCollection, WithHeadings, WithMapping
 {
     protected $schoolId;
 
-    public function __construct($schoolId)
+    public function __construct($schoolId = null)
     {
-        $this->schoolId = $schoolId;
+        $this->schoolId = $schoolId ?? \Illuminate\Support\Facades\Auth::user()?->school_id;
     }
 
     public function collection()

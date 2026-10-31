@@ -12,9 +12,16 @@ use Illuminate\Support\Facades\Auth;
 
 class ParentsExport implements FromCollection, WithHeadings, WithMapping, WithStyles
 {
+    protected $schoolId;
+
+    public function __construct($schoolId = null)
+    {
+        $this->schoolId = $schoolId ?? Auth::user()?->school_id;
+    }
+
     public function collection()
     {
-        $schoolId = Auth::user()->school_id;
+        $schoolId = $this->schoolId;
         // Ambil data orang tua beserta relasi siswa dan user (untuk username)
         return StudentParent::with(['user', 'students'])
             ->where('school_id', $schoolId)

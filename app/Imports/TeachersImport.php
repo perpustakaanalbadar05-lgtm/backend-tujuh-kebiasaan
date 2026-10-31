@@ -23,27 +23,70 @@ class TeachersImport implements ToModel, WithHeadingRow, WithValidation, SkipsEm
     public function model(array $row)
     {
         return DB::transaction(function () use ($row) {
-            // 1. Buat User
-            $user = User::create([
-                'name' => $row['nama'],
-                'username' => $row['nip'], // Set username dari NIP
-                'email' => $row['email'] ?? ($row['nip'] . '@guru.sekolah.id'), // fallback email
-                'password' => Hash::make($row['nip']), // default password is NIP
-                'role' => 'guru',
-                'school_id' => $this->schoolId,
-            ]);
+            $nip = trim((string)($row['nip'] ?? ''));
+            $name = trim((string)($row['nama'] ?? ''));
+            if (empty($nip) || empty($name)) {
+                return null;
+            }
 
-            // 2. Buat Teacher
+            $email = !empty($row['email']) ? trim((string)$row['email']) : null;
+            $phone = !empty($row['telepon']) ? trim((string)$row['telepon']) : null;
+
+            // 1. Cek atau Buat User
+            $user = User::where('school_id', $this->schoolId)
+                ->where('username', $nip)
+                ->first();
+
+            if (!$user) {
+                // Pastikan username unik secara global jika bentrok dengan sekolah lain
+                $username = User::where('username', $nip)->exists() ? "{$nip}_{$this->schoolId}" : $nip;
+                
+                // Pastikan email unik jika diisi
+                $userEmail = $email;
+                if ($userEmail && User::where('email', $userEmail)->exists()) {
+                    $userEmail = $nip . '_' . $this->schoolId . '@guru.g7kaih.id';
+                } elseif (!$userEmail) {
+                    $userEmail = $nip . '_' . $this->schoolId . '@guru.g7kaih.id';
+                }
+
+                $user = User::create([
+                    'name' => $name,
+                    'username' => $username,
+                    'email' => $userEmail,
+                    'password' => Hash::make($nip), // default password NIP
+                    'role' => 'guru',
+                    'school_id' => $this->schoolId,
+                ]);
+            } else {
+                $updateData = ['name' => $name];
+                if ($email && !User::where('email', $email)->where('id', '!=', $user->id)->exists()) {
+                    $updateData['email'] = $email;
+                }
+                $user->update($updateData);
+            }
+
+            // 2. Cek atau Buat Teacher (Kolom yang ada di tabel: school_id, user_id, nip, name, email, phone)
+            $teacher = Teacher::where('school_id', $this->schoolId)
+                ->where('nip', $nip)
+                ->first();
+
+            if ($teacher) {
+                $teacher->update([
+                    'user_id' => $user->id,
+                    'name' => $name,
+                    'email' => $email ?? $teacher->email,
+                    'phone' => $phone ?? $teacher->phone,
+                ]);
+                return $teacher;
+            }
+
             return new Teacher([
                 'school_id' => $this->schoolId,
                 'user_id' => $user->id,
-                'nip' => $row['nip'],
-                'name' => $row['nama'],
-                'gender' => strtolower($row['jenis_kelamin']) == 'l' ? 'l' : 'p',
-                'phone' => $row['telepon'] ?? null,
-                'address' => $row['alamat'] ?? null,
-                'position' => $row['jabatan'] ?? 'Guru',
-                'status' => 'active',
+                'nip' => $nip,
+                'name' => $name,
+                'email' => $email,
+                'phone' => $phone,
             ]);
         });
     }
@@ -53,7 +96,6 @@ class TeachersImport implements ToModel, WithHeadingRow, WithValidation, SkipsEm
         return [
             'nip' => 'required',
             'nama' => 'required|string',
-            'jenis_kelamin' => 'required|in:l,p,L,P',
         ];
     }
 
@@ -62,8 +104,6 @@ class TeachersImport implements ToModel, WithHeadingRow, WithValidation, SkipsEm
         return [
             'nip.required' => 'Kolom NIP tidak boleh kosong.',
             'nama.required' => 'Kolom Nama tidak boleh kosong.',
-            'jenis_kelamin.required' => 'Kolom Jenis Kelamin tidak boleh kosong.',
-            'jenis_kelamin.in' => 'Format Jenis Kelamin harus L atau P.',
         ];
     }
 
@@ -72,7 +112,7 @@ class TeachersImport implements ToModel, WithHeadingRow, WithValidation, SkipsEm
         return [
             'nip' => 'NIP',
             'nama' => 'Nama',
-            'jenis_kelamin' => 'Jenis Kelamin',
         ];
     }
 }
+

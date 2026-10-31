@@ -23,38 +23,105 @@ class StudentsImport implements ToModel, WithHeadingRow, WithValidation, SkipsEm
     public function model(array $row)
     {
         return DB::transaction(function () use ($row) {
-            // 1. Buat User
-            $user = User::create([
-                'name' => $row['nama'],
-                'username' => $row['nis'], // Set username dari NIS
-                'email' => $row['email'] ?? ($row['nis'] . '@siswa.sekolah.id'), // fallback email
-                'password' => Hash::make($row['nis']), // default password is NIS
-                'role' => 'siswa',
-                'school_id' => $this->schoolId,
-            ]);
+            $nis = trim((string)$row['nis']);
+            if (empty($nis)) return null;
 
-            // Cari kelas berdasarkan nama (lebih fleksibel dengan LIKE)
-            $className = trim($row['nama_kelas'] ?? '');
-            $schoolClass = \App\Models\SchoolClass::where('school_id', $this->schoolId)
-                ->where('name', 'like', '%' . $className . '%')
+            // 1. Cek atau Buat User
+            $user = User::where('school_id', $this->schoolId)
+                ->where('username', $nis)
                 ->first();
 
-            if (!$schoolClass) {
-                throw new \Exception("Baris dengan NIS {$row['nis']} gagal: Kelas '{$className}' tidak ditemukan di sistem sekolah ini. Pastikan nama kelas sudah dibuat di menu Kelas.");
+            if (!$user) {
+                // If username is taken globally, suffix with schoolId to guarantee uniqueness
+                $username = User::where('username', $nis)->exists() ? "{$nis}_{$this->schoolId}" : $nis;
+                $user = User::create([
+                    'name' => $row['nama'],
+                    'username' => $username,
+                    'email' => !empty($row['email']) ? $row['email'] : ($nis . '_' . $this->schoolId . '@student.g7kaih.id'),
+                    'password' => Hash::make($nis),
+                    'role' => 'siswa',
+                    'school_id' => $this->schoolId,
+                ]);
+            } else {
+                $user->update([
+                    'name' => $row['nama'],
+                    'email' => !empty($row['email']) ? $row['email'] : $user->email,
+                ]);
             }
 
-            // 2. Buat Student
+            // 2. Cari atau Auto-Create Kelas
+            $className = trim((string)($row['nama_kelas'] ?? ''));
+            $schoolClass = null;
+
+            if (!empty($className)) {
+                $schoolClass = \App\Models\SchoolClass::where('school_id', $this->schoolId)
+                    ->where(function($q) use ($className) {
+                        $q->where('name', $className)
+                          ->orWhere('name', 'like', '%' . $className . '%');
+                    })
+                    ->first();
+
+                if (!$schoolClass) {
+                    $activeYear = \App\Models\AcademicYear::where('school_id', $this->schoolId)->where('active', true)->first();
+                    if (!$activeYear) {
+                        $activeYear = \App\Models\AcademicYear::where('school_id', $this->schoolId)->latest()->first();
+                    }
+                    if (!$activeYear) {
+                        \App\Models\School::initializeDefaults($this->schoolId);
+                        $activeYear = \App\Models\AcademicYear::where('school_id', $this->schoolId)->where('active', true)->first();
+                    }
+
+                    preg_match('/\d+/', $className, $matches);
+                    $grade = !empty($matches[0]) ? $matches[0] : '7';
+
+                    $schoolClass = \App\Models\SchoolClass::create([
+                        'school_id' => $this->schoolId,
+                        'academic_year_id' => $activeYear ? $activeYear->id : null,
+                        'name' => $className,
+                        'grade' => $grade,
+                        'active' => true,
+                    ]);
+                }
+            }
+
+            if (!$schoolClass) {
+                throw new \Exception("Baris dengan NIS {$nis} gagal: Nama kelas tidak diisi.");
+            }
+
+            // 3. Cek atau Buat Student
+            $student = Student::where('school_id', $this->schoolId)
+                ->where('nis', $nis)
+                ->first();
+
+            $gender = strtoupper(trim((string)($row['jenis_kelamin'] ?? 'L'))) === 'P' ? 'P' : 'L';
+
+            if ($student) {
+                $student->update([
+                    'user_id' => $user->id,
+                    'class_id' => $schoolClass->id,
+                    'nisn' => $row['nisn'] ?? $student->nisn,
+                    'name' => $row['nama'],
+                    'gender' => $gender,
+                    'birth_place' => $row['tempat_lahir'] ?? $student->birth_place,
+                    'birth_date' => $row['tanggal_lahir'] ?? $student->birth_date,
+                    'address' => $row['alamat'] ?? $student->address,
+                    'status' => 'active',
+                ]);
+                return $student;
+            }
+
             return new Student([
                 'school_id' => $this->schoolId,
                 'user_id' => $user->id,
                 'class_id' => $schoolClass->id,
-                'nis' => $row['nis'],
+                'nis' => $nis,
                 'nisn' => $row['nisn'] ?? null,
                 'name' => $row['nama'],
-                'gender' => strtolower($row['jenis_kelamin']) == 'l' ? 'l' : 'p',
+                'gender' => $gender,
                 'birth_place' => $row['tempat_lahir'] ?? null,
                 'birth_date' => $row['tanggal_lahir'] ?? null,
                 'address' => $row['alamat'] ?? null,
+                'status' => 'active',
             ]);
         });
     }

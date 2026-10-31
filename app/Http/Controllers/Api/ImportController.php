@@ -17,7 +17,7 @@ class ImportController extends Controller
     public function importStudents(Request $request)
     {
         $request->validate([
-            'file' => 'required|mimes:xlsx,csv,xls|max:5120',
+            'file' => 'required|file|mimes:xlsx,csv,xls|max:10240',
         ]);
 
         $user = $request->user();
@@ -38,7 +38,7 @@ class ImportController extends Controller
     public function importTeachers(Request $request)
     {
         $request->validate([
-            'file' => 'required|mimes:xlsx,csv,xls|max:5120',
+            'file' => 'required|file|mimes:xlsx,csv,xls|max:10240',
         ]);
 
         $user = $request->user();
@@ -59,11 +59,16 @@ class ImportController extends Controller
     public function importParents(Request $request)
     {
         $request->validate([
-            'file' => 'required|mimes:xlsx,xls,csv|max:2048'
+            'file' => 'required|file|mimes:xlsx,xls,csv|max:10240'
         ]);
 
+        $user = $request->user();
+        if (!$user->school_id) {
+            return $this->errorResponse('Anda tidak memiliki sekolah', 400);
+        }
+
         try {
-            Excel::import(new ParentsImport, $request->file('file'));
+            Excel::import(new ParentsImport($user->school_id), $request->file('file'));
             return $this->successResponse(null, 'Data orang tua berhasil diimport', 200);
         } catch (\Maatwebsite\Excel\Validators\ValidationException $e) {
             return $this->errorResponse($this->formatValidationErrors($e), 422);

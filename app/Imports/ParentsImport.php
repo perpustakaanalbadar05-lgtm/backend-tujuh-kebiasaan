@@ -15,9 +15,16 @@ use Illuminate\Support\Facades\Log;
 
 class ParentsImport implements ToCollection, WithHeadingRow, WithValidation
 {
+    protected $schoolId;
+
+    public function __construct($schoolId = null)
+    {
+        $this->schoolId = $schoolId ?? Auth::user()?->school_id;
+    }
+
     public function collection(Collection $rows)
     {
-        $schoolId = Auth::user()->school_id;
+        $schoolId = $this->schoolId;
         $adminId = Auth::id();
 
         foreach ($rows as $row) {
@@ -56,27 +63,35 @@ class ParentsImport implements ToCollection, WithHeadingRow, WithValidation
                 ->where(function($q) use ($username, $phone) {
                     $q->where('username', $username);
                     if ($phone) {
-                        $q->orWhere('username', $phone); // Sometimes phone is used as username
+                        $q->orWhere('username', $phone);
                     }
                 })
                 ->first();
 
             if (!$user) {
-                // Create new user
+                if (User::where('username', $username)->exists()) {
+                    $username = $username . '_' . $schoolId;
+                }
+
+                $userEmail = $email;
+                if ($userEmail && User::where('email', $userEmail)->exists()) {
+                    $userEmail = null;
+                }
+
                 $user = User::create([
                     'name' => $name,
                     'username' => $username,
-                    'email' => $email,
-                    'password' => Hash::make($phone ?? $username), // Default password
+                    'email' => $userEmail,
+                    'password' => Hash::make($phone ?? $username),
                     'role' => 'orangtua',
                     'school_id' => $schoolId,
                 ]);
             } else {
-                // Update existing user (nama & email)
-                $user->update([
-                    'name' => $name,
-                    'email' => $email ?? $user->email,
-                ]);
+                $updateData = ['name' => $name];
+                if ($email && !User::where('email', $email)->where('id', '!=', $user->id)->exists()) {
+                    $updateData['email'] = $email;
+                }
+                $user->update($updateData);
             }
 
             // 2. Cek Parent berdasarkan user_id
